@@ -1,0 +1,6 @@
+.*.sw[opn]
+*.pyc
+__pycache__
+*.ogg
+bkai00mp.ttf
+wqy-microhei.ttc
