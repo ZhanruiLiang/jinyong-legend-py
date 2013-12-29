@@ -1,42 +1,49 @@
 import pygame as pg
 import config
 import fonts
+import sprite
 
 
-class Menu(object):
+class Menu(sprite.Sprite):
     def __init__(
-            self, items, pos, font_name, font_size, 
+            self, font_name, font_size, 
             need_box, color, selected_color):
+        """
+        items: List of (name, callback) tuples
+        need_box: draw box or not
+        color: normal item color
+        selected_color: selected item color
+        """
+        super().__init__()
         self.font = fonts.get_font(font_name, font_size)
         self.color = color
         self.selectedColor = selected_color
         self.needBox = need_box
         self.items = [
             self.make_item(name, callback, color) 
-            for (name, callback) in items]
+            for (name, callback) in self.items]
         self.currentIdx = 0
         self.change_color(self.currentIdx, self.selectedColor)
 
-        self.rect = self.make_rect(pos, self.items)
+        self.rect = self.make_rect(self.items)
         self.image = pg.Surface(self.rect.size).convert_alpha()
         self._dirty = True
-        self.update()
 
     def make_item(self, name, callback, color):
         fontSurf = self.font.render(
             name,  # text
-            1,  # antialiaes
+            config.fontAntiAliasEnable,  # antialias
             color,  # color
         )
         return (name, callback, fontSurf)
 
-    def make_rect(self, pos, items):
+    def make_rect(self, items):
         width = config.menuMarginLeft + config.menuMarginRight \
             + max(fontSurf.get_width() for (_, _, fontSurf) in items)
         height = config.menuMarginTop + config.menuMarginBottom \
             + sum(fontSurf.get_height() + config.menuItemMarginBottom 
                 for (_, _, fontSurf) in items)
-        return pg.Rect(pos, (width, height))
+        return pg.Rect((0, 0), (width, height))
 
     def escape(self):
         pass
@@ -82,12 +89,13 @@ class Menu(object):
             return self.rect
         return None
 
-
-class StartMenu(Menu):
-    def __init__(self, items, pos):
-        super().__init__(
-            items, pos, 
-            config.defaultFont, config.startMenuFontSize,
-            False,  # need box ?
-            config.colorMenuItem, config.colorMenuItemSelected,  # item colors
-        )
+    def add_item(self, name, callback=None):
+        if not hasattr(self, 'items'):
+            self.items = []
+        if callback is None:
+            def decorator(callback):
+                self.items.append((name, callback))
+                return callback
+            return decorator
+        else:
+            self.items.append((name, callback))

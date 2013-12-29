@@ -1,0 +1,1 @@
+map <F5> :!pyrunner3 game.py <CR>

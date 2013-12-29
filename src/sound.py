@@ -1,6 +1,5 @@
 import pygame as pg
 import config
-import os
 
 soundMap = {
     'start': 16,
@@ -9,16 +8,19 @@ soundMap = {
 currentName = None
 
 
-def play_midi(name):
+def play_music(name):
+    if not config.musicEnable:
+        return
     global currentName
     if name == currentName:
         return
-    stop_midi()
-    filename = os.path.join(
-        config.soundDir, 'game{:02d}.ogg'.format(soundMap['start']))
+    stop_music()
+    filename = config.resource('sound', 
+            'game{:02d}.ogg'.format(soundMap['start']))
+    pg.mixer.music.set_volume(config.musicVolume)
     pg.mixer.music.load(filename)
     pg.mixer.music.play()
 
 
-def stop_midi():
+def stop_music():
     pg.mixer.music.stop()
