@@ -3,6 +3,9 @@ import pygame as pg
 import menu
 import sound
 from sprite import Picture
+import player
+import utils
+from record import Record, RecordNotExistError
 
 
 class GameState:
@@ -16,15 +19,65 @@ class GameState:
     EXIT = 8
 
 
-class StartMenu(menu.Menu):
+class Misc:
+    """
+Attributes:
+    boating
+    unused
+    playerX
+    playerY
+    playerX1
+    playerY1
+    playerDir
+    boatX
+    boatY
+    boatX1
+    boatY1
+    boatDir
+    members
+    items
+    """
+    ATTRS = [
+        ('boating', '乘船'), ('unused', '无用'), 
+        ('playerX', '人X'), ('playerY', '人Y'),
+        ('playerX1', '人X1'), ('playerY1', '人Y1'), ('playerDir', '人方向'),
+        ('boatX', '船X'), ('boatY', '船Y'), 
+        ('boatX1', '船X1'), ('boatY1', '船Y1'), ('boatDir', '船方向'),
+    ]
+
+    def __init__(self, data):
+        subdata = data['misc']
+        for name1, name2 in self.ATTRS:
+            setattr(self, name1, subdata[name2])
+        self.members = [
+            subdata['队伍' + str(i)] 
+            for i in range(config.maxTeamMemberNumber)
+        ]
+        self.items = [
+            ('物品' + str(i), '物品数量' + str(i))
+            for i in range(config.maxItemNumber)
+        ]
+
+    def save(self, data):
+        subdata = data['misc']
+        for name1, name2 in self.ATTRS:
+            subdata[name2] = getattr(self, name1)
+        for i, x in enumerate(self.members):
+            subdata['队伍' + str(i)] = x
+        for i, x in enumerate(self.items):
+            subdata['物品' + str(i)] = x[0]
+            subdata['物品数量' + str(i)] = x[1]
+
+
+class StartMenu(menu.BaseMenu):
     def __init__(self, game):
         @self.add_item('重新开始')
         def create_profile():
-            pass
+            game.set_menu(ProfileMenu(game))
 
         @self.add_item('载入进度')
         def load():
-            pass
+            game.set_menu(LoadMenu(game))
 
         @self.add_item('离开游戏')
         def quit():
@@ -37,13 +90,89 @@ class StartMenu(menu.Menu):
         )
 
 
-class ProfileMenu(menu.Menu):
-    def __init__():
-        pass
+class ProfileMenu(menu.BaseMenu):
+    HORIZONTAL_MARGIN = 2
+    TABLE = [
+        [("内力", "内力最大值"), ("攻击", "攻击力"), ("轻功", "轻功"), ("防御", "防御力")],
+        [("生命", "生命最大值"), ("医疗", "医疗能力"), ("用毒", "用毒能力"), ("解毒", "解毒能力")],
+        [("拳掌", "拳掌功夫"), ("御剑", "御剑能力"), ("耍刀", "耍刀技巧"), ("暗器", "暗器技巧")],
+    ]
+
+    def __init__(self, game):
+        @self.add_item('是')
+        def yes():
+            game.new_game()
+
+        @self.add_item('否')
+        def no():
+            self.generate()
+
+        self.generate()
+        super().__init__(
+            config.defaultFont, config.startMenuFontSize,
+            True,
+            config.colorMenuItem, config.colorWhite,
+        )
+
+    def make_rect(self, items):
+        width = max(
+            sum(self.HORIZONTAL_MARGIN + self.font.size(name + ' 00')[0]
+                for (name, _) in line) 
+            for line in self.TABLE
+        ) + config.menuMarginLeft + config.menuMarginRight
+        return pg.Rect((0, 0), (width, 180))
+
+    def draw(self):
+        utils.clear_surface(self.image)
+        x, y = (config.menuMarginLeft, config.menuMarginRight)
+        w1, h1 = self.font.size('拳掌00')
+        w1 += self.HORIZONTAL_MARGIN
+
+        def draw_text(text, color):
+            nonlocal x, y
+            self.image.blit(
+                self.font.render(text, config.fontAntiAliasEnable, color),
+                (x, y),
+            )
+            x += self.font.size(text)[0] + self.HORIZONTAL_MARGIN
+
+        def new_line():
+            nonlocal x, y
+            x = config.menuMarginLeft
+            y += h1 + config.menuItemMarginBottom
+
+        draw_text('这样的属性满意吗?', config.colorGold)
+        for (_, _, fontSurf) in self.items:
+            self.image.blit(fontSurf, (x, y))
+            x += self.HORIZONTAL_MARGIN + fontSurf.get_width()
+
+        profile = self.profile
+        for line in self.TABLE:
+            new_line()
+            for sortName, attribute in line:
+                draw_text(sortName, config.colorRed)
+                draw_text(str(profile[attribute]), config.colorWhite) 
+
+    def generate(self):
+        self.profile = player.new_random_profile()
+        self._dirty = True
+
+
+class LoadMenu(menu.BaseMenu):
+    def __init__(self, game):
+        for i in range(config.nSaveSlots):
+            @self.add_item('进度' + utils.number_to_chinese(i + 1))
+            def load(i=i):
+                game.load_record(str(i + 1))
+        super().__init__(
+            config.defaultFont, config.startMenuFontSize,
+            False,  # need box ?
+            config.colorMenuItem, config.colorMenuItemSelected,  # item colors
+        )
 
 
 class Game:
-    def init_sdl(self):
+    def init_pg(self):
         pg.display.init()
         pg.font.init()
         pg.mixer.init()
@@ -57,20 +186,19 @@ class Game:
 
         pg.key.set_repeat(config.keyRepeatDelayTime, config.keyRepeatInterval)
 
-    def exit_sdl(self):
+    def init(self):
+        self.init_pg()
+
+    def clean_up(self):
         pg.quit()
 
-    def init_game(self):
+    def play(self):
         self.state = GameState.MENU
+        self.background = Picture('title.png')
+        sound.play_music('start')
 
-    def exit_game(self):
-        pass
-
-    def run(self):
-        self.init_sdl()
-        self.init_game()
-
-        self.show_main_menu()
+        # self.set_menu(StartMenu(self))
+        self.set_menu(LoadMenu(self))
         tm = pg.time.Clock()
         while self.state is not GameState.EXIT:
             for event in pg.event.get():
@@ -83,13 +211,7 @@ class Game:
             self.render()
             tm.tick(config.FPS)
 
-        self.exit_game()
-        self.exit_sdl()
-
-    def show_main_menu(self):
-        sound.play_music('start')
-        self.set_menu(StartMenu(self))
-        self.background = Picture('title.png')
+        self.clean_up()
 
     def quit(self):
         self.state = GameState.EXIT
@@ -124,7 +246,29 @@ class Game:
                 continue
             pg.draw.rect(self.screen, (100, 100, 200), rect, 1)
 
+    def configure(self, record):
+        self.misc = Misc(record)
+        self.player = player.Player(record)
+        print(list(sorted(record['scene'].items())))
+
+    def load_record(self, name):
+        try:
+            record = Record.load(name)
+        except RecordNotExistError:
+            # not exist
+            return
+        self.configure(record)
+
+    def save_record(self, name):
+        # record = self.make_record()
+        # record.save(name)
+        pass
+
+    def new_game(self):
+        self.configure(record.load('ranger'))
+
 
 if __name__ == '__main__':
     game = Game()
-    game.run()
+    game.init()
+    game.play()

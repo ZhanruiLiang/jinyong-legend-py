@@ -5,7 +5,11 @@ import utils
 import random
 
 class Player:
-    pass
+    def __init__(self, data):
+        self.data = data['player']
+
+    def save(self, data):
+        data['player'] = self.data
 
 def new_random_profile():
     attributes = [

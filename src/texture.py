@@ -51,20 +51,24 @@ class TextureGroup:
         self.name = name
         self.idxs = load_idx_file(config.resource('data', name + '.idx'))
         self.grp = load_grp_file(config.resource('data', name + '.grp'))
-        # self.idxs.append(len(self.grp))
+        self.idxs.append(0)
         self.textures = [None] * (len(self.idxs) - 1)
+        # print(self.idxs)
 
     def get_texture(self, id):
         if self.textures[id] is None:
-            texture = self.load_texture(id)
+            texture = self._load_texture(id)
             self.textures[id] = texture
         else:
             texture = self.textures[id]
         return texture
 
-    def load_texture(self, id):
-        start, end = self.idxs[id], self.idxs[id + 1]
+    def _load_texture(self, id):
+        start, end = self.idxs[id - 1], self.idxs[id]
+        if start == end or start >= len(self.grp):
+            return None
         data = self.grp[start:end]
+        # print(start, end, len(self.grp))
         fileobj = io.BytesIO(data)
         try:
             image = pg.image.load(fileobj, 'png')
@@ -72,11 +76,11 @@ class TextureGroup:
             xoff //= 2
             yoff //= 2
         except pg.error as err:
-            xoff, yoff, image = self.parse_RLE(data)
+            xoff, yoff, image = self._parse_RLE(data)
 
         return Texture(xoff, yoff, image)
 
-    def parse_RLE(self, data):
+    def _parse_RLE(self, data):
         # Parse a little endian unsigned short
         pallette = get_pallette()
         w, h, xoff, yoff = struct.unpack('<4H', data[:8])
@@ -113,7 +117,13 @@ class TextureGroup:
 
     def get_all(self):
         for id in range(len(self.idxs) - 1):
-            yield self.get_texture(id)
+            texture = self.get_texture(id)
+            if texture is not None:
+                yield texture
+
+
+class MapTextureGroup(TextureGroup):
+    pass
 
 
 class Animation:

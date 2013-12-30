@@ -28,6 +28,7 @@ colorMenuItem = (132, 0, 4, 255)
 colorMenuItemSelected = (216, 20, 40, 255)
 colorMenuBackground = (128, 128, 128, 128)
 colorWhite = (236, 236, 236, 255)
+colorRed = (216, 20, 24, 255)
 colorOrange = (252, 148, 16, 255)
 colorGold = (236, 200, 40, 255)
 colorBlack = (0, 0, 0, 255)
@@ -47,3 +48,21 @@ soundEffectVolume = 0.6
 # music
 musicEnable = True
 musicVolume = 0.6
+
+nSaveSlots = 4
+
+# restrictions
+maxTeamMemberNumber = 6
+maxItemNumber = 200
+maxCombatEnemyNumber = 20
+
+# textures
+portraitFilename = 'hdgrp'
+sceneMapFilename = 'smap'
+
+# scene
+sceneMapXMax = 64
+sceneMapYMax = 64
+sceneNum = 200
+eventNumPerScene = 200
+sceneCacheNum = 8

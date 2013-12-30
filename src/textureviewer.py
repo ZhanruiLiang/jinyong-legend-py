@@ -4,7 +4,7 @@ import config
 import pygame as pg
 import utils
 
-def viewer():
+def viewer(init=None):
     import os
     names = []
     allT = {}
@@ -13,14 +13,17 @@ def viewer():
         if ext == '.grp':
             names.append(name)
     excludes = [
-        'alldef', 'allsin', 'allsinbk', 'd1', 'd2', 'd3', 'mmap', 'wmap',
-        'warfld', 'smap', 's1', 's2', 's3', 'ranger', 'r1', 'r2', 'r3',
+        'alldef', 'allsin', 'allsinbk', 
+        'warfld', 's1', 's2', 's3', 'ranger', 'r1', 'r2', 'r3', 'd1', 'd2', 'd3', 'r9'
     ]
     for name in excludes:
         names.remove(name)
     names.sort()
     print(names)
-    idx = names.index('thing')
+    if init is None:
+        idx = 0
+    else:
+        idx = names.index(init)
 
     pg.display.init()
     pg.font.init()
@@ -35,6 +38,7 @@ def viewer():
         if name not in allT:
             allT[name] = TextureGroup(name)
         textures = allT[name]
+        print(len(textures.idxs) - 1)
 
         screen.fill((0, 0, 0, 0))
         w, h = screen.get_size()
@@ -50,6 +54,8 @@ def viewer():
             else:
                 x = 0
                 y += rowMaxH + margin
+                if y >= screen.get_height():
+                    break
                 rowMaxH = 0
             screen.blit(image, (x, y))
             x += w1 + margin
@@ -76,4 +82,8 @@ def viewer():
 
 
 if __name__ == '__main__':
-    viewer()
+    import sys
+    if len(sys.argv) == 1:
+        viewer()
+    else:
+        viewer(sys.argv[1])

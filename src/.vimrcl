@@ -1,1 +1,2 @@
 map <F5> :!pyrunner3 game.py <CR>
+map <F6> :!py3 tests/test.py <CR>
