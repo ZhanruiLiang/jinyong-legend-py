@@ -1,26 +1,34 @@
 import os
+import pygame as pg
 
 resourceRoot = 'resource'
 
+class Directions:
+    all = (right, down, left, up) = ((1, 0), (0, 1), (-1, 0), (0, -1))
 
 def resource(*subpaths):
     return os.path.join(resourceRoot, *subpaths)
 
-FPS = 20
+debug = True
+
+FPS = 30
 
 screenWidth = 640
 screenHeight = 480
+# 
+# screenWidth = 1280
+# screenHeight = 700
+
 fullscreenEnable = 0
 musicVolume = 32
 soundVolume = 32
 textureXScale = 18
 textureYScale = 9
-keyRepeatDelayTime = 200
-keyRepeatInterval = 100
+keyRepeatDelayTime = 150
+keyRepeatInterval = 30
 talkfile = resource('talk', 'oldtalk.grp')
 menuMarginLeft = menuMarginRight = menuMarginTop = menuMarginBottom = 4
 menuItemMarginBottom = 2
-startMenuFontSize = 32
 
 # colors
 palletteFile = resource('data', 'mmap.col')
@@ -39,6 +47,7 @@ colorFontShadow = (50, 50, 50, 100)
 # defaultFont = 'wqy-microhei.ttc'
 defaultFont = 'ukai.ttc'
 defaultFontSize = 16
+menuFontSize = 32
 fontAntiAliasEnable = False
 
 # sound effect
@@ -66,3 +75,11 @@ sceneMapYMax = 64
 sceneNum = 200
 eventNumPerScene = 200
 sceneCacheNum = 8
+
+directionKeyMap = {
+    pg.K_UP: Directions.up, 
+    pg.K_DOWN: Directions.down,
+    pg.K_LEFT: Directions.left,
+    pg.K_RIGHT: Directions.right,
+}
+

@@ -1,5 +1,6 @@
 import pygame as pg
 import config
+import inspect
 
 def wait_exit():
     tm = pg.time.Clock()
@@ -28,3 +29,45 @@ def diff(a):
     for i in range(n - 1):
         b[i + 1] = a[i + 1] - a[i]
     return b
+
+_debugLogFile = open('debug.txt', 'w')
+
+count = 0
+
+def debug(*args, **kwargs):
+    if not config.debug: 
+        return 
+    global count
+    frame = inspect.stack()[1]
+    # modules = []
+    # stacks = inspect.stack()[1:]
+    # for frame in stacks:
+    #     name = inspect.getmodule(frame[0]).__name__
+    #     if name != '__main__':
+    #         modules.append(name)
+    # if not modules:
+    #     modules.append('__main__')
+    # modules = '->'.join(x for x in reversed(modules))
+
+    def p():
+        print('{}: [{}]:'.format(count, modules), *args, **kwargs)
+    modules = inspect.getmodule(inspect.stack()[1][0]).__name__
+    p()
+    kwargs['file'] = _debugLogFile
+    p()
+    count += 1
+
+def step():
+    tm = pg.time.Clock()
+    while 1:
+        for event in pg.event.get():
+            if event.type == pg.KEYDOWN:
+                yield
+                break
+        tm.tick(config.FPS)
+
+def wait_key():
+    while 1:
+        event = pg.event.poll()
+        if event.type == pg.KEYDOWN:
+            return event.key

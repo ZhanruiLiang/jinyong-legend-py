@@ -20,7 +20,7 @@ class Type:
         return val
 
 class SType(Type):
-    ENCODING = 'big5'
+    ENCODING = 'hkscs'
 
     def __init__(self, size):
         super().__init__(size, str(size) + 's')
@@ -31,12 +31,31 @@ class SType(Type):
     def decode(self, val):
         return val.decode(self.ENCODING)
 
+class STypeDebug(SType):
+    def encode(self, val):
+        if isinstance(val, bytes):
+            return val
+        return val.encode(self.ENCODING)
+
+    def decode(self, val):
+        try:
+            return val.decode(self.ENCODING)
+        except UnicodeDecodeError:
+            print(val)
+            return val
 
 Tint16 = Type(2, 'h')
 Tuint16 = Type(2, 'I')
 Ts10 = SType(10)
 Ts20 = SType(20)
 Ts30 = SType(30)
+
+
+class FrozenDict(UserDict):
+    def __setitem__(self, key, value):
+        if key in self:
+            raise Exception("Can not modify FrozenDict")
+        super().__setitem__(key, value)
 
 
 class Field:
@@ -321,16 +340,23 @@ class Record(UserDict):
 
         # parse r fild
         for i, st in enumerate(self.STRUCTS):
-            self[st.name] = st.load(rFilePair.read_block())
+            block = rFilePair.read_block()
+            # print(st.name, len(block) / st.size)
+            data = [
+                st.load(block[j:j + st.size]) for j in range(0, len(block), st.size)
+            ]
+            self[st.name] = data
         del rFilePair
 
-        self.scenes = SceneGroup.load(sceneFile, eventFile)
+        sceneMetas = [FrozenDict(meta) for meta in self[structScene.name]]
+        self.scenes = SceneGroup.load(sceneMetas, sceneFile, eventFile)
         return self
 
     def save(self, suffix):
         rFilePair = FilePair('r' + suffix, FilePair.MODE_WRITE)
         for st in self.STRUCTS:
-            rFilePair.write_block(st.save(self[st.name]))
+            data = b''.join(st.save(x) for x in self[st.name])
+            rFilePair.write_block(data)
         del rFilePair
 
         sceneFile = open_grp('s', suffix, 'wb')
@@ -338,3 +364,4 @@ class Record(UserDict):
         self.scenes.save(sceneFile, eventFile)
         sceneFile.close()
         eventFile.close()
+

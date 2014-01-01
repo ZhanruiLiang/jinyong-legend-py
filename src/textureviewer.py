@@ -13,8 +13,9 @@ def viewer(init=None):
         if ext == '.grp':
             names.append(name)
     excludes = [
-        'alldef', 'allsin', 'allsinbk', 
-        'warfld', 's1', 's2', 's3', 'ranger', 'r1', 'r2', 'r3', 'd1', 'd2', 'd3', 'r9'
+        'danger', 'sanger', 'ranger', 'alldef', 'allsin', 'allsinbk', 
+        'warfld', 's1', 's2', 's3', 'r1', 'r2', 'r3', 'd1', 'd2', 'd3', 
+        'r9', 'd9', 's9',
     ]
     for name in excludes:
         names.remove(name)
@@ -29,7 +30,7 @@ def viewer(init=None):
     pg.font.init()
     screen = pg.display.set_mode((800, 600), 0, 32)
 
-    font = fonts.get_default_font()
+    font = fonts.get_default_font(16)
 
     def draw(idx_new):
         nonlocal idx
@@ -45,7 +46,7 @@ def viewer(init=None):
         x, y = 0, 0
         rowMaxH = 0
         margin = 2
-        for texture in textures.get_all():
+        for id, texture in textures.get_all():
             image = texture.image
             w1, h1 = image.get_size()
             if x + w1 < w:
@@ -58,6 +59,7 @@ def viewer(init=None):
                     break
                 rowMaxH = 0
             screen.blit(image, (x, y))
+            screen.blit(font.render(str(id), 1, (0, 0xff, 0)), (x, y))
             x += w1 + margin
         textSize = font.size(name)
         rect = pg.Rect((0, 0), (textSize[0], textSize[1]))

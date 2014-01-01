@@ -3,13 +3,18 @@ import struct
 import array
 import config
 import io
+import utils
 
 pallette = None
 
-TYPE_CODE = 'B'
+# TYPE_CODE will be used to :
+# * decode pallette file
+# * decode RLE file
+TYPE_CODE = 'B'  # unsigned char
 
 def load_idx_file(filename):
     with open(filename, 'rb') as infile:
+        # Typecode 'I' means unsigned int.
         return array.array('I', infile.read())
 
 def load_grp_file(filename):
@@ -53,9 +58,17 @@ class TextureGroup:
         self.grp = load_grp_file(config.resource('data', name + '.grp'))
         self.idxs.append(0)
         self.textures = [None] * (len(self.idxs) - 1)
-        # print(self.idxs)
+        utils.debug(name, 'textures:', len(self.textures))
 
-    def get_texture(self, id):
+    def __len__(self):
+        return len(self.textures)
+
+    def get(self, id, fail=0):
+        id //= 2
+        if not 0 <= id < len(self.textures):
+            utils.debug('{}: id: {} not in range {}'.format(
+                self.name, id, (0, len(self.textures) - 1)))
+            id = fail
         if self.textures[id] is None:
             texture = self._load_texture(id)
             self.textures[id] = texture
@@ -66,6 +79,7 @@ class TextureGroup:
     def _load_texture(self, id):
         start, end = self.idxs[id - 1], self.idxs[id]
         if start == end or start >= len(self.grp):
+            # utils.debug('Texture#{} is empty. [{}:{}]'.format(id, start, end))
             return None
         data = self.grp[start:end]
         # print(start, end, len(self.grp))
@@ -75,7 +89,7 @@ class TextureGroup:
             xoff, yoff = image.get_size()
             xoff //= 2
             yoff //= 2
-        except pg.error as err:
+        except pg.error:
             xoff, yoff, image = self._parse_RLE(data)
 
         return Texture(xoff, yoff, image)
@@ -84,7 +98,7 @@ class TextureGroup:
         # Parse a little endian unsigned short
         pallette = get_pallette()
         w, h, xoff, yoff = struct.unpack('<4H', data[:8])
-        surface = pg.Surface((w, h)).convert_alpha()
+        surface = pg.Surface((w, h), 0, 32).convert_alpha()
         surface.fill((0, 0, 0, 0))
         # Start run length decoding
         rle = array.array(TYPE_CODE, data[8:])
@@ -96,15 +110,18 @@ class TextureGroup:
                 break
             p0 = p
             # Read how many RLE items in this row
-            nRLEDataInRow = rle[p]; p += 1
+            nRLEDataInRow = rle[p]
+            p += 1
             x = 0
             while p - p0 < nRLEDataInRow:
-                nEmptyPixels = rle[p]; p += 1
+                nEmptyPixels = rle[p]
+                p += 1
                 x += nEmptyPixels
                 # x exceeded line width, break and read next row
                 if x >= w: 
                     break
-                nSolidPixels = rle[p]; p += 1
+                nSolidPixels = rle[p]
+                p += 1
                 for j in range(nSolidPixels):
                     assert x < w
                     surface.set_at((x, y), pallette.get(rle[p]))
@@ -117,9 +134,9 @@ class TextureGroup:
 
     def get_all(self):
         for id in range(len(self.idxs) - 1):
-            texture = self.get_texture(id)
+            texture = self.get(id)
             if texture is not None:
-                yield texture
+                yield id, texture
 
 
 class MapTextureGroup(TextureGroup):
@@ -137,5 +154,5 @@ class Animation:
         self.currentFrame += 1
         self.currentFrame %= self.totalFrames
 
-    def get_texture(self):
-        return self.textureGroup.get_texture(self.ids[self.currentFrame])
+    def get(self):
+        return self.textureGroup.get(self.ids[self.currentFrame])

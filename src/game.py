@@ -1,11 +1,11 @@
 import config
 import pygame as pg
-import menu
 import sound
-from sprite import Picture
 import player
 import utils
+from sprite import Picture
 from record import Record, RecordNotExistError
+from menu import BaseMenu, menuitem
 
 
 class GameState:
@@ -46,7 +46,7 @@ Attributes:
     ]
 
     def __init__(self, data):
-        subdata = data['misc']
+        subdata = data['misc'][0]
         for name1, name2 in self.ATTRS:
             setattr(self, name1, subdata[name2])
         self.members = [
@@ -59,7 +59,7 @@ Attributes:
         ]
 
     def save(self, data):
-        subdata = data['misc']
+        subdata = data['misc'][0]
         for name1, name2 in self.ATTRS:
             subdata[name2] = getattr(self, name1)
         for i, x in enumerate(self.members):
@@ -69,28 +69,23 @@ Attributes:
             subdata['物品数量' + str(i)] = x[1]
 
 
-class StartMenu(menu.BaseMenu):
-    def __init__(self, game):
-        @self.add_item('重新开始')
-        def create_profile():
-            game.set_menu(ProfileMenu(game))
+class StartMenu(BaseMenu):
+    need_box = False
 
-        @self.add_item('载入进度')
-        def load():
-            game.set_menu(LoadMenu(game))
+    @menuitem('重新开始')
+    def create_profile(self):
+        self.game.set_menu(ProfileMenu(game))
 
-        @self.add_item('离开游戏')
-        def quit():
-            game.quit()
+    @menuitem('载入进度')
+    def load(self):
+        self.game.set_menu(LoadMenu(game))
 
-        super().__init__(
-            config.defaultFont, config.startMenuFontSize,
-            False,  # need box ?
-            config.colorMenuItem, config.colorMenuItemSelected,  # item colors
-        )
+    @menuitem('离开游戏')
+    def quit(self):
+        self.game.quit()
 
 
-class ProfileMenu(menu.BaseMenu):
+class ProfileMenu(BaseMenu):
     HORIZONTAL_MARGIN = 2
     TABLE = [
         [("内力", "内力最大值"), ("攻击", "攻击力"), ("轻功", "轻功"), ("防御", "防御力")],
@@ -98,21 +93,15 @@ class ProfileMenu(menu.BaseMenu):
         [("拳掌", "拳掌功夫"), ("御剑", "御剑能力"), ("耍刀", "耍刀技巧"), ("暗器", "暗器技巧")],
     ]
 
-    def __init__(self, game):
-        @self.add_item('是')
-        def yes():
-            game.new_game()
+    selected_color = config.colorWhite
 
-        @self.add_item('否')
-        def no():
-            self.generate()
+    @menuitem('是')
+    def yes(self):
+        game.new_game()
 
+    @menuitem('否')
+    def no(self):
         self.generate()
-        super().__init__(
-            config.defaultFont, config.startMenuFontSize,
-            True,
-            config.colorMenuItem, config.colorWhite,
-        )
 
     def make_rect(self, items):
         width = max(
@@ -158,20 +147,25 @@ class ProfileMenu(menu.BaseMenu):
         self._dirty = True
 
 
-class LoadMenu(menu.BaseMenu):
-    def __init__(self, game):
-        for i in range(config.nSaveSlots):
-            @self.add_item('进度' + utils.number_to_chinese(i + 1))
-            def load(i=i):
-                game.load_record(str(i + 1))
-        super().__init__(
-            config.defaultFont, config.startMenuFontSize,
-            False,  # need box ?
-            config.colorMenuItem, config.colorMenuItemSelected,  # item colors
+class LoadMenu(BaseMenu):
+    for i in range(config.nSaveSlots):
+        exec(
+            "@menuitem('进度' + utils.number_to_chinese(i + 1))\n" +
+            "def load_{}(self, i=i):\n".format(i) +
+            "    self.game.load_record(str(i + 1))"
         )
 
 
 class Game:
+    """
+Attributes:
+    player
+    misc
+    items
+    scenes
+    skills
+    shops
+    """
     def init_pg(self):
         pg.display.init()
         pg.font.init()
@@ -181,13 +175,15 @@ class Game:
         if config.fullscreenEnable:
             flags = pg.FULLSCREEN | pg.HWSURFACE | pg.DOUBLEBUF
         else:
-            flags = pg.SWSURFACE
+            flags = pg.SWSURFACE | pg.DOUBLEBUF
         self.screen = pg.display.set_mode(size, flags, 32)
 
         pg.key.set_repeat(config.keyRepeatDelayTime, config.keyRepeatInterval)
 
     def init(self):
         self.init_pg()
+
+        self.nextDirection = None
 
     def clean_up(self):
         pg.quit()
@@ -199,6 +195,9 @@ class Game:
 
         # self.set_menu(StartMenu(self))
         self.set_menu(LoadMenu(self))
+        self.loop()
+
+    def loop(self):
         tm = pg.time.Clock()
         while self.state is not GameState.EXIT:
             for event in pg.event.get():
@@ -206,10 +205,10 @@ class Game:
                     self.on_key_down(event.key)
                 elif event.type == pg.QUIT:
                     self.quit()
-            if self.state is GameState.MENU:
-                self.currentMenu.update()
+            self.logic()
             self.render()
             tm.tick(config.FPS)
+            # utils.debug('FPS:', tm.get_fps())
 
         self.clean_up()
 
@@ -225,19 +224,43 @@ class Game:
     def on_key_down(self, key):
         if self.state is GameState.MENU:
             self.currentMenu.on_key_down(key)
+        elif self.state is GameState.SCENE_MAP:
+            if key == pg.K_ESCAPE:
+                self.quit()
+            if key in config.directionKeyMap:
+                self.nextDirection = config.directionKeyMap[key]
 
     def render(self):
-        if self.state is GameState.MENU:
+        screen = self.screen
+        state = self.state
+        if state is GameState.MENU:
             pg.display.update([
                 self.draw_sprite(self.background),
                 self.draw_sprite(self.currentMenu),
             ])
+        elif state is GameState.SCENE_MAP:
+            # utils.clear_surface(screen)
+            self.screen.fill((30, 30, 30, 255))
+            pg.display.update([
+                self.draw_sprite(self.currentScene),
+            ])
+            pg.display.flip()
         else:
-            self.screen.fill((0, 0, 0, 0))
+            screen.fill((0, 0, 0, 0))
             # TODO
             pg.display.update()
 
+    def logic(self):
+        if self.state is GameState.MENU:
+            self.currentMenu.update()
+        elif self.state is GameState.SCENE_MAP:
+            if self.nextDirection is not None:
+                self.currentScene.move(self.nextDirection)
+            self.nextDirection = None
+            self.currentScene.update()
+
     def draw_sprite(self, sp):
+        # utils.debug(sp.image, sp.rect)
         return self.screen.blit(sp.image, sp.rect)
 
     def show_update_rects(self, update_rects):
@@ -249,14 +272,16 @@ class Game:
     def configure(self, record):
         self.misc = Misc(record)
         self.player = player.Player(record)
-        print(list(sorted(record['scene'].items())))
+        self.scenes = record.scenes
+        # print('\n'.join(str(x['名称']) for x in record['scene']))
 
     def load_record(self, name):
         try:
             record = Record.load(name)
         except RecordNotExistError:
-            # not exist
+            utils.debug('Record "{}" not exist'.format(name))
             return
+        utils.debug('Record "{}" loaded'.format(name))
         self.configure(record)
 
     def save_record(self, name):
@@ -265,7 +290,20 @@ class Game:
         pass
 
     def new_game(self):
-        self.configure(record.load('ranger'))
+        self.configure(Record.load('ranger'))
+
+    def enter_scene(self, id):
+        self.state = GameState.SCENE_MAP
+        if isinstance(id, int):
+            scene = self.scenes.get(id)
+        elif isinstance(id, str):
+            scene = self.scenes.get_by_name(id)
+        else:
+            raise KeyError('unknown id: {}'.format(id))
+        scene.move_to(scene.entrance)
+        utils.debug("enter scene:", scene.name)
+
+        self.currentScene = scene
 
 
 if __name__ == '__main__':
