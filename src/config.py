@@ -11,7 +11,7 @@ def resource(*subpaths):
 
 debug = True
 
-FPS = 30
+FPS = 40
 
 screenWidth = 640
 screenHeight = 480
@@ -25,7 +25,7 @@ soundVolume = 32
 textureXScale = 18
 textureYScale = 9
 keyRepeatDelayTime = 150
-keyRepeatInterval = 30
+keyRepeatInterval = 20
 talkfile = resource('talk', 'oldtalk.grp')
 menuMarginLeft = menuMarginRight = menuMarginTop = menuMarginBottom = 4
 menuItemMarginBottom = 2

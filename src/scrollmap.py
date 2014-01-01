@@ -2,6 +2,8 @@ import pygame as pg
 import config
 import utils
 import sprite
+import pylru
+from texture import Texture
 
 def minus(a, b):
     return (a[0] - b[0], a[1] - b[1])
@@ -19,26 +21,11 @@ class ScrollMap(sprite.Sprite):
     BASE_Y = (-GX, GY)
 
     def __init__(self, xmax, ymax):
-        #     p1
-        #   /    \
-        #  /      \
-        # p4       p2
-        #  \      /
-        #   \    /      
-        #     p3   
+        size = (config.screenWidth, config.screenHeight)
 
-        # p1, p2, p3, p4 = map(self.to_gs_pos, 
-        #     ((0, 0), (xmax, 0), (xmax, ymax), (0, ymax)))
-        # self.image = pg.Surface(
-        #     (p3[0] - p1[0] + self.GX, p4[1] - p2[1] + self.GY), 0, 32)
-        size = (
-            config.screenWidth + 2 * self.GX,
-            config.screenHeight + 2 * self.GY,
-        )
-        self.image = pg.Surface(size).convert_alpha()
-        self.oldImage = self.image.copy()
-
-        self.rect = pg.Rect((-self.GX, -self.GY), size)
+        self.rect = pg.Rect((0, 0), size)
+        # self.image = pg.Surface(size).convert_alpha()
+        self.image = pg.display.get_surface()
         self.currentPos = (0, 0)
         self.xmax = xmax
         self.ymax = ymax
@@ -48,9 +35,8 @@ class ScrollMap(sprite.Sprite):
             (self.GX, self.GY),  # grid size
         )
 
-        # If _drawn[x, y] = surfacePos, that means we have drawn grid (x, y)
-        # onto surfacePos. Keep these to speed up the drawing in next draw.
-        self._drawn = {}
+        self._gridTextureCache = pylru.lrucache(2 ** 14)
+        self._dirty = True
 
     def set_texture_group(self, textures):
         self.textures = textures
@@ -76,17 +62,18 @@ class ScrollMap(sprite.Sprite):
         if texture is None:
             # utils.debug('Invalid to blit None on {}'.format(surface_pos))
             return
-        sx, sy = surface_pos
-        self.image.blit(
-            texture.image, 
-            (sx - texture.xoff, sy - texture.yoff - height)
-        )
-        # self.image.blit(texture.image, (sx - texture.xoff, sy - texture.yoff))
+        self._texturesToMerge.append((height, texture))
 
     def move_to(self, pos):
         # utils.debug("Move to", pos)
         self.currentPos = pos
+        self._dirty = True
         self.redraw()
+
+    def render(self):
+        if self._dirty:
+            self.redraw()
+            self._dirty = False
 
     @property
     def clip_rect(self):
@@ -99,84 +86,55 @@ class ScrollMap(sprite.Sprite):
         utils.clear_surface(self.image)
         if CLIP:
             self.image.set_clip(self.clip_rect)
-        cnt = 0
+        # cnt = 0
         for dx, dy in self.looper:
             pos = x + dx, y + dy
             surfacePos = (
                 centerX + dx * baseX[0] + dy * baseY[0],
                 centerY + dx * baseX[1] + dy * baseY[1],
             )
-            self.draw_grid(pos, surfacePos)
-            cnt += 1
+            # if dx == 0 and dy == 0:
+            #     self.draw_grid_cache(pos, surfacePos)
+            self.draw_grid_cache(pos, surfacePos)
+            # cnt += 1
         # pg.draw.rect(self.image, (0xff, 0, 0), self.clip_rect, 2)
-        utils.debug('cnt:', cnt)
+        # utils.debug('cnt:', cnt)
 
-    def delta_draw(self, direction):
-        self.redraw(); return
-        x, y = self.currentPos
-        centerX, centerY = self.image.get_rect().center
-        baseX, baseY = self.BASE_X, self.BASE_Y
-
-        def blit_old():
-            sox, soy = self.to_gs_vec(direction)
-            self.image.blit(self.oldImage, (-sox, -soy))
-
-        def draw_along_y(ys):
-            cnt = 0
-            for dy in sorted(ys.keys()):
-                cnt += 1
-                dx = ys[dy]
-                pos = x + dx, y + dy
-                surfacePos = (
-                    centerX + dx * baseX[0] + dy * baseY[0],
-                    centerY + dx * baseX[1] + dy * baseY[1],
-                )
-                self.draw_grid(pos, surfacePos)
-            utils.debug('cnt:', cnt)
-
-        def draw_along_x(xs):
-            cnt = 0
-            for dx in sorted(xs.keys()):
-                cnt += 1
-                dy = xs[dx]
-                pos = x + dx, y + dy
-                surfacePos = (
-                    centerX + dx * baseX[0] + dy * baseY[0],
-                    centerY + dx * baseX[1] + dy * baseY[1],
-                )
-                self.draw_grid(pos, surfacePos)
-            utils.debug('cnt:', cnt)
-
-        self.swap_surface()
-        utils.clear_surface(self.image)
-        if direction == (1, 0):
-            ys = {}
-            for dx, dy in self.looper:
-                if dy not in ys:
-                    ys[dy] = dx
-                else:
-                    ys[dy] = max(ys[dy], dx)
-            blit_old()
-            draw_along_y(ys)
-        elif direction == (-1, 0):
-            ys = {}
-            for dx, dy in self.looper:
-                if dy not in ys:
-                    ys[dy] = dx
-                else:
-                    ys[dy] = min(ys[dy], dx)
-            draw_along_y(ys)
-            blit_old()
-        # pg.draw.rect(self.image, (0xff, 0, 0), ((self.GX + M, self.GY + M), (W, H)), 2)
-
-    def swap_surface(self):
-        self.oldImage, self.image = self.image, self.oldImage
+    def draw_grid_cache(self, pos, surface_pos):
+        if pos in self._gridTextureCache:
+            texture = self._gridTextureCache[pos]
+        else:
+            self._texturesToMerge = []
+            self.draw_grid(pos, surface_pos)
+            # Merge textures
+            rects = [
+                pg.Rect((-t.xoff, -t.yoff - height), t.image.get_size()) 
+                for height, t in self._texturesToMerge
+            ]
+            if not rects:
+                texture = None
+            else:
+                rect = rects[0].unionall(rects)
+                image = pg.Surface(rect.size).convert_alpha()
+                utils.clear_surface(image)
+                x, y = -rect.x, -rect.y
+                for height, t in self._texturesToMerge:
+                    image.blit(t.image, (x - t.xoff, y - t.yoff - height))
+                texture = Texture(x, y, image)
+                self._gridTextureCache[pos] = texture
+        if texture is None:
+            return
+        sx, sy = surface_pos
+        self.image.blit(
+            texture.image, 
+            (sx - texture.xoff, sy - texture.yoff)
+        )
 
     def move(self, direction):
         x, y = self.currentPos
         dx, dy = direction
         self.currentPos = (x + dx, y + dy)
-        self.delta_draw(direction)
+        self._dirty = True
 
     def update(self):
         pass

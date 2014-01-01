@@ -199,6 +199,7 @@ Attributes:
 
     def loop(self):
         tm = pg.time.Clock()
+        round = 0
         while self.state is not GameState.EXIT:
             for event in pg.event.get():
                 if event.type == pg.KEYDOWN:
@@ -208,7 +209,9 @@ Attributes:
             self.logic()
             self.render()
             tm.tick(config.FPS)
-            # utils.debug('FPS:', tm.get_fps())
+            if round % 10 == 0:
+                utils.debug('FPS:', tm.get_fps())
+            round += 1
 
         self.clean_up()
 
@@ -239,12 +242,9 @@ Attributes:
                 self.draw_sprite(self.currentMenu),
             ])
         elif state is GameState.SCENE_MAP:
-            # utils.clear_surface(screen)
-            self.screen.fill((30, 30, 30, 255))
-            pg.display.update([
-                self.draw_sprite(self.currentScene),
-            ])
-            pg.display.flip()
+            pg.display.update()
+            self.currentScene.render()
+            # pg.display.flip()
         else:
             screen.fill((0, 0, 0, 0))
             # TODO
@@ -260,7 +260,6 @@ Attributes:
             self.currentScene.update()
 
     def draw_sprite(self, sp):
-        # utils.debug(sp.image, sp.rect)
         return self.screen.blit(sp.image, sp.rect)
 
     def show_update_rects(self, update_rects):
