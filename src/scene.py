@@ -118,8 +118,9 @@ class Scene(ScrollMap):
         except KeyError:
             return
         # draw floor
-        if grid.floor > 0:
-            self.blit_texture(grid.floor, grid.height)
+        if config.drawFloor:
+            if grid.floor > 0:
+                self.blit_texture(grid.floor, grid.height)
         # draw building
         if grid.building > 0:
             self.blit_texture(grid.building, grid.height)

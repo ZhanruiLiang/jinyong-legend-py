@@ -62,8 +62,9 @@ class ScrollMap(sprite.Sprite):
         self._swapped = False
         self._quit = False
         self.drawLock = threading.Lock()
-        self.drawerThread = threading.Thread(target=self.drawer)
-        self.drawerThread.start()
+        if config.smoothTicks > 1:
+            self.drawerThread = threading.Thread(target=self.drawer)
+            self.drawerThread.start()
         self.rAdjuster = SimpleRateAdjuster()
         # self.rAdjuster = RateAdjuster()
 
@@ -73,8 +74,9 @@ class ScrollMap(sprite.Sprite):
 
     def quit(self):
         self._quit = True
-        self.notify_redraw()
-        self.drawerThread.join()
+        if config.smoothTicks > 1:
+            self.notify_redraw()
+            self.drawerThread.join()
 
     def set_texture_group(self, textures):
         self.textures = textures
@@ -121,15 +123,15 @@ class ScrollMap(sprite.Sprite):
             self._swapped = False
             image = self.drawImage
             centerX, centerY = image.get_rect().center
-            baseX, baseY = self.BASE_X, self.BASE_Y
+            GX, GY = self.GX, self.GY
             utils.clear_surface(image)
             if CLIP:
                 image.set_clip(self.clip_rect)
             self.cnt = 0
             for dx, dy in self.looper.iter():
                 pos = x + dx, y + dy
-                sx = centerX + dx * baseX[0] + dy * baseY[0]
-                sy = centerY + dx * baseX[1] + dy * baseY[1]
+                sx = centerX + (dx - dy) * GX
+                sy = centerY + (dx + dy) * GY
                 texture = self.get_grid_texture(pos)
                 if not texture:
                     continue
@@ -250,7 +252,10 @@ class ScrollMap(sprite.Sprite):
                     if not self._swapped:
                         self.swap_image()
                 self.currentPos = add(self.currentPos, direction)
-                self.notify_redraw()
+                if config.smoothTicks > 1:
+                    self.notify_redraw()
+                else:
+                    self.redraw()
             else:
                 return
         else:

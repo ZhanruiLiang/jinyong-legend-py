@@ -14,12 +14,13 @@ debug = True
 FPS = 40
 # showFPS = True
 showFPS = True
-smoothTicks = 2
+smoothTicks = 1
+drawFloor = 1
 
 # screenWidth = 640
 # screenHeight = 480
 screenWidth = 1366
-screenHeight = 700
+screenHeight = 768
 
 debugMargin = 0
 drawDebugRect = True

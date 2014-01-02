@@ -30,8 +30,9 @@ class MainMap(ScrollMap):
         grid = self.get_grid(pos, None)
         if grid is None:
             return
-        if grid.earth > 0:
-            self.blit_texture(grid.earth, 0)
+        if config.drawFloor:
+            if grid.earth > 0:
+                self.blit_texture(grid.earth, 0)
         if grid.surface > 0:
             self.blit_texture(grid.surface, 0)
         if grid.building > 0:

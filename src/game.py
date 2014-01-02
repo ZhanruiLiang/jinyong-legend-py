@@ -187,6 +187,8 @@ Attributes:
 
         self.currentMenu = None
         self.currentMap = None
+        self._keyCallbacks = []
+        self.add_key_callback(debugger)
 
     def clean_up(self):
         if self.currentMap:
@@ -235,16 +237,17 @@ Attributes:
         elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
             if key == pg.K_ESCAPE:
                 self.quit()
-            elif key == pg.K_f:
-                pg.display.toggle_fullscreen()
-            elif key in config.directionKeyMap:
-                if mod & pg.KMOD_CTRL:
-                    x, y = self.currentMap.currentPos
-                    dx, dy = config.directionKeyMap[key]
-                    d = 20
-                    self.currentMap.move_to((x + dx * d, y + dy * d))
-                else:
+            if key in config.directionKeyMap:
+                if not mod:
                     self.currentMap.move(config.directionKeyMap[key])
+        for callback in self._keyCallbacks:
+            callback(self, key, mod)
+
+    def add_key_callback(self, callback):
+        """
+        callback: A callable with arguments, (game, key, mod)
+        """
+        self._keyCallbacks.append(callback)
 
     def render(self):
         screen = self.screen
@@ -322,6 +325,17 @@ Attributes:
 
         self.currentMap = scene
 
+def debugger(game, key, mod):
+    if key == pg.K_f:
+        pg.display.toggle_fullscreen()
+    elif key == pg.K_g:
+        config.drawFloor = not config.drawFloor
+    elif mod & pg.KMOD_CTRL and key in config.directionKeyMap:
+        if game.state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
+            dx, dy = config.directionKeyMap[key]
+            x, y = game.currentMap.currentPos
+            d = 5
+            game.currentMap.move_to((x + dx * d, y + dy * d))
 
 if __name__ == '__main__':
     game = Game()

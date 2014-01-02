@@ -318,10 +318,9 @@ class FilePair:
             self.idxFile.close()
             self.grpFile.close()
 
-
-
 def open_grp(type, suffix, mode):
     return open(config.resource('data', '{}{}.grp'.format(type, suffix)), mode)
+
 
 class Record(UserDict):
     STRUCTS = [
@@ -364,4 +363,3 @@ class Record(UserDict):
         self.scenes.save(sceneFile, eventFile)
         sceneFile.close()
         eventFile.close()
-
