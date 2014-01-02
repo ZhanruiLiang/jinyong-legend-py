@@ -34,7 +34,7 @@ def save_load():
     assert r == r1
 
 @testcase
-def scroll():
+def scene():
     import game
 
     g = game.Game()
@@ -42,6 +42,16 @@ def scroll():
     g.load_record('1')
     # g.enter_scene('梅莊')
     g.enter_scene('絕情谷底')
+    g.loop()
+
+@testcase
+def mmap():
+    import game
+
+    g = game.Game()
+    g.init()
+    g.load_record('1')
+    g.enter_main_map()
     g.loop()
 
 @testcase
@@ -77,15 +87,6 @@ def load_smap(id=70):
     pg.image.save(t1, 'a.png')
     os.system('feh a.png')
 
-# @testcase
-def load_mmap(id):
-    import texture
-    pg.display.set_mode((1, 1), 0, 32)
-    tg = texture.TextureGroup('mmap')
-    t1 = tg.get(int(id)).image
-    pg.image.save(t1, 'a.png')
-    os.system('feh a.png')
-
 @testcase
 def map_size():
     import texture
@@ -93,6 +94,18 @@ def map_size():
     for name in ('smap', 'mmap', 'wmap'):
         tg = texture.TextureGroup(name)
         print(name, len(tg))
+
+@testcase
+def mini_map():
+    import game
+    import mainmap
+
+    g = game.Game()
+    g.init()
+    mmap = mainmap.MainMap.get_instance()
+    mmap.make_minimap('/tmp/a.png')
+    mmap.quit()
+    g.quit()
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:

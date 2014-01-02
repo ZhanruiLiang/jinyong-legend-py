@@ -1,5 +1,4 @@
 from array import array
-import string
 from collections import namedtuple
 
 import pylru
@@ -11,8 +10,9 @@ from scrollmap import ScrollMap
 
 GRID_FIELD_NUM = 6
 EVENT_FIELD_NUM = 11
-SCENE_BLOCK_SIZE = config.sceneMapXMax * config.sceneMapYMax * 2 * GRID_FIELD_NUM
-EVENT_BLOCK_SIZE = config.eventNumPerScene * 2 * EVENT_FIELD_NUM
+SCENE_BLOCK_SIZE = (
+    config.sceneMapXMax * config.sceneMapYMax * GRID_FIELD_NUM * 2)
+EVENT_BLOCK_SIZE = config.eventNumPerScene * EVENT_FIELD_NUM * 2
 
 Grid = namedtuple('Grid', (
     'floor',
@@ -72,7 +72,7 @@ class Scene(ScrollMap):
         self.metaData = meta_data
         self.set_texture_group(get_textures())
 
-        # self.debug_dump(0)
+        self.debug_dump(0)
         # self.debug_dump(1)
 
     @staticmethod
@@ -102,42 +102,10 @@ class Scene(ScrollMap):
         ebytes = b''.join(array(TYPE_CODE, e).tobytes() for e in self.events)
         return sbytes, ebytes
 
-    def iter_grids(self):
-        for y in range(self.height):
-            for x in range(self.width):
-                yield (x, y), self.get_grid((x, y))
-
     def debug_dump(self, field):
-        allIds = list({grid[field] for (x, y), grid in self.iter_grids()})
-        marks = dict(zip(allIds, string.printable))
-
-        print('  ', end=' ')
-        for x in range(self.width):
-            print(x // 10 if x % 10 == 0 else ' ', end=' ')
-        print()
-        print('  ', end=' ')
-        for x in range(self.width):
-            print(x % 10, end=' ')
-        print()
-
-        for y in range(self.height):
-            print('{}{}'.format((y // 10 if y % 10 == 0 else ' '), y % 10),
-                end=' ')
-            for x in range(self.width):
-                grid = self.get_grid((x, y))
-                if grid[field] == -1:
-                    c = '!'
-                elif grid[field] == 0:
-                    c = '.'
-                elif self.textures.get(grid[field]) is not None:
-                    c = marks.get(grid[field], '烫')
-                else:
-                    c = ' '
-                print(c, end=' ')
-            print()
-        legend = [(marks[id], id // 2) for id in marks]
-        legend.sort()
-        print('\n'.join(map(str, legend)))
+        def getter(grid):
+            return grid[field]
+        super().debug_dump(getter)
 
     # Implement draw_grid method to support ScrollMap operations.
     def draw_grid(self, pos, surface_pos):
@@ -151,18 +119,18 @@ class Scene(ScrollMap):
             return
         # draw floor
         if grid.floor > 0:
-            self.blit_texture(grid.floor, surface_pos, grid.height)
+            self.blit_texture(grid.floor, grid.height)
         # draw building
         if grid.building > 0:
-            self.blit_texture(grid.building, surface_pos, grid.height)
+            self.blit_texture(grid.building, grid.height)
         # draw floating
         if grid.float > 0:
-            self.blit_texture(grid.float, surface_pos, grid.floatHeight)
+            self.blit_texture(grid.float, grid.floatHeight)
         # draw event
         if grid.event >= 0:
             event = self.events[grid.event]
             # utils.debug("event:", event.texture, event)
-            self.blit_texture(event.texture, surface_pos, grid.height)
+            self.blit_texture(event.texture, grid.height)
 
     def get_grid(self, pos):
         x, y = pos
@@ -190,7 +158,7 @@ class SceneGroup:
             meta['名称'].replace('\x00', ''): id 
             for id, meta in enumerate(meta_datas)
         }
-        print(self._nameToId)
+        # utils.debug(self._nameToId)
         return self
 
     def on_eject(self, id, scene):
@@ -218,8 +186,10 @@ class SceneGroup:
             event_file.write(ebuf)
 
     def _load_scene(self, id):
-        sbuf = self.sceneBuffer[id * SCENE_BLOCK_SIZE:(id + 1) * SCENE_BLOCK_SIZE]
-        ebuf = self.eventBuffer[id * EVENT_BLOCK_SIZE:(id + 1) * EVENT_BLOCK_SIZE]
+        S = SCENE_BLOCK_SIZE
+        E = EVENT_BLOCK_SIZE
+        sbuf = self.sceneBuffer[id * S:(id + 1) * S]
+        ebuf = self.eventBuffer[id * E:(id + 1) * E]
         meta = self.metaDatas[id]
         return Scene(id, meta, sbuf, ebuf)
 

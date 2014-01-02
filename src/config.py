@@ -11,17 +11,18 @@ def resource(*subpaths):
 
 debug = True
 
-FPS = 60
+FPS = 40
+# showFPS = True
 showFPS = True
-smoothTicks = 4
+smoothTicks = 2
 
-screenWidth = 640
-screenHeight = 480
+# screenWidth = 640
+# screenHeight = 480
+screenWidth = 1366
+screenHeight = 700
+
 debugMargin = 0
 drawDebugRect = True
-# 
-# screenWidth = 1280
-# screenHeight = 700
 
 fullscreenEnable = 0
 musicVolume = 32
@@ -79,6 +80,10 @@ sceneMapYMax = 64
 sceneNum = 200
 eventNumPerScene = 200
 sceneCacheNum = 8
+
+# main map
+mainMapXMax = 480
+mainMapYMax = 480
 
 directionKeyMap = {
     pg.K_UP: Directions.up, 

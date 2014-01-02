@@ -6,6 +6,7 @@ import utils
 from sprite import Picture
 from record import Record, RecordNotExistError
 from menu import BaseMenu, menuitem
+from mainmap import MainMap
 
 
 class GameState:
@@ -179,16 +180,17 @@ Attributes:
         self.screen = pg.display.set_mode(size, flags, 32)
 
         pg.key.set_repeat(config.keyRepeatDelayTime, config.keyRepeatInterval)
+        pg.mouse.set_visible(False)
 
     def init(self):
         self.init_pg()
 
-        self.nextDirection = None
-        self.currentScene = None
+        self.currentMenu = None
+        self.currentMap = None
 
     def clean_up(self):
-        if self.currentScene:
-            self.currentScene.quit()
+        if self.currentMap:
+            self.currentMap.quit()
         pg.quit()
 
     def play(self):
@@ -206,7 +208,7 @@ Attributes:
         while self.state is not GameState.EXIT:
             for event in pg.event.get():
                 if event.type == pg.KEYDOWN:
-                    self.on_key_down(event.key)
+                    self.on_key_down(event.key, event.mod)
                 elif event.type == pg.QUIT:
                     self.quit()
             self.logic()
@@ -222,19 +224,27 @@ Attributes:
         self.state = GameState.EXIT
 
     def set_menu(self, menu):
-        self.currentMenu = menu
+        self.currentMap = menu
         menu.rect.left = int(
             (self.screen.get_width() - menu.image.get_width()) / 2)
         menu.rect.bottom = self.screen.get_height() - 20
 
-    def on_key_down(self, key):
+    def on_key_down(self, key, mod):
         if self.state is GameState.MENU:
             self.currentMenu.on_key_down(key)
-        elif self.state is GameState.SCENE_MAP:
+        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
             if key == pg.K_ESCAPE:
                 self.quit()
-            if key in config.directionKeyMap:
-                self.nextDirection = config.directionKeyMap[key]
+            elif key == pg.K_f:
+                pg.display.toggle_fullscreen()
+            elif key in config.directionKeyMap:
+                if mod & pg.KMOD_CTRL:
+                    x, y = self.currentMap.currentPos
+                    dx, dy = config.directionKeyMap[key]
+                    d = 20
+                    self.currentMap.move_to((x + dx * d, y + dy * d))
+                else:
+                    self.currentMap.move(config.directionKeyMap[key])
 
     def render(self):
         screen = self.screen
@@ -244,11 +254,11 @@ Attributes:
                 self.draw_sprite(self.background),
                 self.draw_sprite(self.currentMenu),
             ])
-        elif state is GameState.SCENE_MAP:
+        elif state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
             utils.clear_surface(self.screen)
             pg.display.update([
-                self.draw_sprite(self.currentScene),
-                # pg.draw.rect(self.screen, (0xff, 0, 0), self.currentScene.clip_rect, 2),
+                self.draw_sprite(self.currentMap),
+                # pg.draw.rect(self.screen, (0xff, 0, 0), self.currentMap.clip_rect, 2),
             ])
         else:
             screen.fill((0, 0, 0, 0))
@@ -258,12 +268,8 @@ Attributes:
     def logic(self):
         if self.state is GameState.MENU:
             self.currentMenu.update()
-        elif self.state is GameState.SCENE_MAP:
-            # self.nextDirection = config.Directions.up
-            if self.nextDirection is not None:
-                self.currentScene.move(self.nextDirection)
-            self.nextDirection = None
-            self.currentScene.update()
+        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
+            self.currentMap.update()
 
     def draw_sprite(self, sp):
         return self.screen.blit(sp.image, sp.rect)
@@ -297,6 +303,12 @@ Attributes:
     def new_game(self):
         self.configure(Record.load('ranger'))
 
+    def enter_main_map(self):
+        self.state = GameState.MAIN_MAP
+        self.currentMap = MainMap.get_instance()
+        self.currentMap.move_to((200, 200))
+        utils.debug("enter main map")
+
     def enter_scene(self, id):
         self.state = GameState.SCENE_MAP
         if isinstance(id, int):
@@ -308,7 +320,7 @@ Attributes:
         scene.move_to(scene.entrance)
         utils.debug("enter scene:", scene.name)
 
-        self.currentScene = scene
+        self.currentMap = scene
 
 
 if __name__ == '__main__':
