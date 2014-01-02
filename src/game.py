@@ -259,13 +259,15 @@ Attributes:
             ])
         elif state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
             screen.fill((0, 0, 0))
-            self.draw_sprite(self.currentMap)
+            map = self.currentMap
+            screen.blit(map.image, map.rect)
             if config.debugMargin:
                 rect = pg.Rect((config.debugMargin, config.debugMargin),
                     (config.screenWidth - 2 * config.debugMargin,
                      config.screenHeight - 2 * config.debugMargin),
                 )
                 pg.draw.rect(screen, (0xff, 0, 0), rect, 2)
+
             pg.display.update()
         else:
             # TODO

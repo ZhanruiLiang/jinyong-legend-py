@@ -18,7 +18,7 @@ def add(a, b):
 def negate(a):
     return (-a[0], -a[1])
 
-CLIP = 1
+CLIP = 0
 
 class ScrollMap(sprite.Sprite):
     GX = config.textureXScale 
@@ -62,8 +62,8 @@ class ScrollMap(sprite.Sprite):
             (self.GX, self.GY),  # grid size
         )
 
-        self._gridTextureCache = pylru.lrucache(2 ** 12)
-        # self._gridTextureCache = {}
+        # self._gridTextureCache = pylru.lrucache(2 ** 12)
+        self._gridTextureCache = {}
         self._dirty = threading.Condition()
         self._swapped = False
         self._drawnPos = (-1, -1)
@@ -125,19 +125,19 @@ class ScrollMap(sprite.Sprite):
         with self.drawLock:
             x, y = self.currentPos
             x1, y1 = self._drawnPos
-            dir = minus(self.currentPos, self._drawnPos)
+            dir = minus((x, y), self._drawnPos)
             self._swapped = False
             image = self.drawImage
             centerX, centerY = image.get_rect().center
             centerY -= config.bottomPadding // 2
             GX, GY = self.GX, self.GY
-            utils.clear_surface(image)
             self.cnt = 0
 
             def convert(dx, dy, texture):
                 return (centerX + (dx - dy) * GX - texture.xoff,
                         centerY + (dx + dy) * GY - texture.yoff)
 
+            utils.clear_surface(image)
             # Draw floor
             floor = self.floorImage
             if dir in config.Directions.all:
@@ -147,7 +147,7 @@ class ScrollMap(sprite.Sprite):
                 for dx, dy in self.looper.iter_delta(dir):
                     texture = self.get_floor_texture((x + dx, y + dy))
                     if not texture:
-                        continue
+                        texture = self.textures.get(0)
                     floor.blit(texture.image, convert(dx, dy, texture))
                     self.cnt += 1
             else:
@@ -160,10 +160,6 @@ class ScrollMap(sprite.Sprite):
                         continue
                     floor.blit(texture.image, convert(dx, dy, texture))
                     self.cnt += 1
-            # rect = pg.Rect((0, 0), 
-            #     (GX * 2 + config.screenWidth, GY * 2 + config.screenHeight))
-            # rect.center = floor.get_rect().center
-            # image.blit(floor, (self.PAD_X - GX, self.PAD_Y - GY), rect)
             image.blit(floor, (0, 0))
 
             # Draw other
@@ -176,7 +172,7 @@ class ScrollMap(sprite.Sprite):
                 self.cnt += 1
 
             # utils.debug('cnt:', self.cnt)
-            self._drawnPos = self.currentPos
+            self._drawnPos = (x, y)
 
     def drawer(self):
         while not self._quit:
@@ -337,6 +333,15 @@ class ScrollMap(sprite.Sprite):
                     for y in range(blockDy):
                         if not 0 <= x < xmax or not 0 <= y < ymax:
                             continue
+                        # Draw floor
+                        texture = self.get_floor_texture((blockX + x, blockY + y))\
+                            or self.textures.get(0)
+                        spos = (
+                            tmpWidth / 2 - texture.xoff + (x - y) * self.GX, 
+                            -texture.yoff + (x + y + 1) * self.GY,
+                        )
+                        tmpSurface.blit(texture.image, spos)
+                        # Draw other
                         texture = self.get_grid_texture((blockX + x, blockY + y))
                         if texture:
                             spos = (
@@ -347,8 +352,8 @@ class ScrollMap(sprite.Sprite):
                         progress.update()
 
                 surface.blit(
-                    pg.transform.scale(tmpSurface, tmpScaleSize),
-                    minus(to_spos((blockX, blockY)), (tmpScaleSize[0] / 2 + .5, gy + .5))
+                    pg.transform.scale(tmpSurface, add((1, 1), tmpScaleSize)),
+                    minus(to_spos((blockX, blockY)), (tmpScaleSize[0] / 2, gy))
                 )
                 # print((blockX, blockY), to_spos((blockX, blockY)))
 

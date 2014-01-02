@@ -95,7 +95,7 @@ class ProgressBar:
                 bar, self.cnt, self.total, 100 * self.cnt / self.total), end='')
 
 def new_surface(size):
-    surface = pg.Surface(size).convert()
+    surface = pg.Surface(size, 0, config.depthBits)
     surface.set_colorkey(config.colorKey)
     surface.fill(config.colorKey)
     return surface
