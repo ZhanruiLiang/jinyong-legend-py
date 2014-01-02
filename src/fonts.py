@@ -9,7 +9,7 @@ class Font(pg.font.Font):
         k = .5
         shadowColor = int(r * k), int(g * k), int(b * k)
         surface1 = super().render(text, aa, shadowColor, background)
-        surface1 = surface1.convert_alpha()
+        surface1 = surface1.convert()
         surface2 = super().render(text, aa, color, background)
         surface1.blit(surface2, (-1, -1))
         return surface1

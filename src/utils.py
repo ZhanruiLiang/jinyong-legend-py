@@ -12,7 +12,7 @@ def wait_exit():
         tm.tick(config.FPS)
 
 def clear_surface(surface):
-    surface.fill((0, 0, 0, 0))
+    surface.fill(config.colorKey)
 
 NAMES = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
 def number_to_chinese(x):
@@ -93,3 +93,9 @@ class ProgressBar:
             bar = '{:60s} '.format('|' * (60 * self.cnt // self.total))
             print('\rprogress: [{}] {}/{} ({:.2f})%'.format(
                 bar, self.cnt, self.total, 100 * self.cnt / self.total), end='')
+
+def new_surface(size):
+    surface = pg.Surface(size).convert()
+    surface.set_colorkey(config.colorKey)
+    surface.fill(config.colorKey)
+    return surface

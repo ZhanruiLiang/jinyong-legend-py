@@ -11,19 +11,16 @@ def resource(*subpaths):
 
 debug = True
 
-FPS = 40
-# showFPS = True
-showFPS = True
+FPS = 30
+showFPS = 1
 smoothTicks = 1
 drawFloor = 1
 
-# screenWidth = 640
-# screenHeight = 480
-screenWidth = 1366
-screenHeight = 768
+screenWidth, screenHeight = 640, 480
+# screenWidth, screenHeight = 800, 600
+# screenWidth, screenHeight = 1366, 768
 
-debugMargin = 0
-drawDebugRect = True
+depthBits = 32
 
 fullscreenEnable = 0
 musicVolume = 32
@@ -36,8 +33,13 @@ talkfile = resource('talk', 'oldtalk.grp')
 menuMarginLeft = menuMarginRight = menuMarginTop = menuMarginBottom = 4
 menuItemMarginBottom = 2
 
+debugMargin = 0
+drawDebugRect = True
+bottomPadding = textureYScale * 32
+
 # colors
 palletteFile = resource('data', 'mmap.col')
+colorKey = (11, 22, 33)
 colorMenuItem = (132, 0, 4, 255)
 colorMenuItemSelected = (216, 20, 40, 255)
 colorMenuBackground = (128, 128, 128, 128)

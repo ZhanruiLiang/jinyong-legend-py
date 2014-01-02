@@ -41,7 +41,7 @@ def viewer(init=None):
         textures = allT[name]
         print(len(textures.idxs) - 1)
 
-        screen.fill((0, 0, 0, 0))
+        utils.clear_surface(screen)
         w, h = screen.get_size()
         x, y = 0, 0
         rowMaxH = 0

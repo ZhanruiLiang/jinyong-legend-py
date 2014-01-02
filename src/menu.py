@@ -2,6 +2,7 @@ import pygame as pg
 import config
 import fonts
 import sprite
+import utils
 
 pg.font.init()
 
@@ -54,7 +55,7 @@ class BaseMenu(sprite.Sprite, metaclass=MenuMeta):
         self.select(0)
 
         self.rect = self.make_rect(self.items)
-        self.image = pg.Surface(self.rect.size).convert_alpha()
+        self.image = utils.new_surface(self.rect.size)
         self._dirty = True
 
     def make_rect(self, items):
@@ -96,7 +97,7 @@ class BaseMenu(sprite.Sprite, metaclass=MenuMeta):
 
     def draw(self):
         image = self.image
-        image.fill((0, 0, 0, 0))
+        utils.clear_surface(image)
         if self.need_box:
             # Draw background.
             pg.draw.rect(image, config.colorMenuBackground, self.rect)

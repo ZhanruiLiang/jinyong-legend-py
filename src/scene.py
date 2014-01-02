@@ -73,7 +73,7 @@ class Scene(ScrollMap):
         self.set_texture_group(get_textures())
 
         self.debug_dump(0)
-        # self.debug_dump(1)
+        self.debug_dump(1)
 
     @staticmethod
     def _extract(data, nFields):
@@ -107,36 +107,30 @@ class Scene(ScrollMap):
             return grid[field]
         super().debug_dump(getter)
 
-    # Implement draw_grid method to support ScrollMap operations.
-    def draw_grid(self, pos, surface_pos):
-        """
-        Draw the grid at position `pos` to surface at dest postion 
-        `surface_pos`.
-        """
-        try:
-            grid = self.get_grid(pos)
-        except KeyError:
-            return
-        # draw floor
-        if config.drawFloor:
-            if grid.floor > 0:
-                self.blit_texture(grid.floor, grid.height)
-        # draw building
-        if grid.building > 0:
-            self.blit_texture(grid.building, grid.height)
-        # draw floating
-        if grid.float > 0:
-            self.blit_texture(grid.float, grid.floatHeight)
-        # draw event
-        if grid.event >= 0:
-            event = self.events[grid.event]
-            # utils.debug("event:", event.texture, event)
-            self.blit_texture(event.texture, grid.height)
+    # Override this method to support ScrollMap operations.
+    def load_grid_texture(self, pos):
+        grid = self.get_grid(pos, None)
+        if grid:
+            eventTexture = self.events[grid.event].texture \
+                if grid.event >= 0 else -1
+            return self.merge_textures([
+                (grid.floor, grid.height),
+                (grid.building, grid.height),
+                (grid.float, grid.floatHeight),
+                (eventTexture, grid.height),
+            ])
 
-    def get_grid(self, pos):
+    # Override this for ScrollMap
+    def get_floor_texture(self, pos):
+        grid = self.get_grid(pos)
+        if grid and grid.floor > 0:
+            return self.textures.get(grid.floor)
+        return None
+
+    def get_grid(self, pos, default=None):
         x, y = pos
         if not 0 <= x < self.width or not 0 <= y < self.height:
-            raise KeyError(pos)
+            return default
         return self.grids[y * self.width + x]
 
 

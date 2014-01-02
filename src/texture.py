@@ -30,7 +30,9 @@ class Pallette:
         self.colors = [None] * 256
         for i in range(256):
             r0, g0, b0 = buf[i * 3:i * 3 + 3]
-            self.colors[i] = (r0 * 4, g0 * 4, b0 * 4, 255)
+            self.colors[i] = (r0 * 4, g0 * 4, b0 * 4)
+            assert self.colors[i] != config.colorKey, \
+                'Color key collide with pallatte'
 
     def get(self, idx):
         return self.colors[idx]
@@ -68,7 +70,7 @@ class TextureGroup:
         if not 0 <= id < len(self.textures):
             utils.debug('{}: id: {} not in range {}'.format(
                 self.name, id, (0, len(self.textures) - 1)))
-            id = fail
+            return None
         if self.textures[id] is None:
             texture = self._load_texture(id)
             self.textures[id] = texture
@@ -98,8 +100,7 @@ class TextureGroup:
         # Parse a little endian unsigned short
         pallette = get_pallette()
         w, h, xoff, yoff = struct.unpack('4h', data[:8])
-        surface = pg.Surface((w, h), 0, 32).convert_alpha()
-        surface.fill((0, 0, 0, 0))
+        surface = utils.new_surface((w, h))
         pixels = pg.pixelarray.PixelArray(surface)
         # Start run length decoding
         rle = array.array(TYPE_CODE, data[8:])

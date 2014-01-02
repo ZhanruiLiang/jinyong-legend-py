@@ -177,7 +177,7 @@ Attributes:
             flags = pg.FULLSCREEN | pg.HWSURFACE | pg.DOUBLEBUF
         else:
             flags = pg.SWSURFACE | pg.DOUBLEBUF
-        self.screen = pg.display.set_mode(size, flags, 32)
+        self.screen = pg.display.set_mode(size, flags, config.depthBits)
 
         pg.key.set_repeat(config.keyRepeatDelayTime, config.keyRepeatInterval)
         pg.mouse.set_visible(False)
@@ -216,7 +216,7 @@ Attributes:
             self.logic()
             self.render()
             tm.tick(config.FPS)
-            if config.showFPS and self.round % 10 == 0:
+            if config.showFPS and self.round % 30 == 0:
                     utils.debug('FPS:', tm.get_fps())
             self.round += 1
 
@@ -258,13 +258,16 @@ Attributes:
                 self.draw_sprite(self.currentMenu),
             ])
         elif state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
-            utils.clear_surface(self.screen)
-            pg.display.update([
-                self.draw_sprite(self.currentMap),
-                # pg.draw.rect(self.screen, (0xff, 0, 0), self.currentMap.clip_rect, 2),
-            ])
+            screen.fill((0, 0, 0))
+            self.draw_sprite(self.currentMap)
+            if config.debugMargin:
+                rect = pg.Rect((config.debugMargin, config.debugMargin),
+                    (config.screenWidth - 2 * config.debugMargin,
+                     config.screenHeight - 2 * config.debugMargin),
+                )
+                pg.draw.rect(screen, (0xff, 0, 0), rect, 2)
+            pg.display.update()
         else:
-            screen.fill((0, 0, 0, 0))
             # TODO
             pg.display.update()
 

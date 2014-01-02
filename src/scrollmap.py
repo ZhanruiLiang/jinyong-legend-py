@@ -1,7 +1,6 @@
 import pygame as pg
 import threading
 import string
-import os
 
 import pylru
 
@@ -19,47 +18,55 @@ def add(a, b):
 def negate(a):
     return (-a[0], -a[1])
 
-CLIP = 0
+CLIP = 1
 
 class ScrollMap(sprite.Sprite):
     GX = config.textureXScale 
     GY = config.textureYScale
     BASE_X = (GX, GY)
     BASE_Y = (-GX, GY)
-    PAD_X = GX * 2
-    PAD_Y = GY * 2
+    PAD_X = GX * 6
+    PAD_Y = GY * 8
 
     def __init__(self, xmax, ymax):
         size = (
             config.screenWidth + self.PAD_X * 2, 
-            config.screenHeight + self.PAD_Y * 2,
+            config.screenHeight + self.PAD_Y * 2 + config.bottomPadding,
         )
-
-        self.rect = pg.Rect(
-            (-self.PAD_X, -self.PAD_Y),
-            size,
-        )
-        self.image = pg.Surface(size).convert_alpha()
-        self.drawImage = self.image.copy()
-        self.currentPos = (0, 0)
-        self.directionQueue = []
-        self.xmax = xmax
-        self.ymax = ymax
         innerSize = (
             config.screenWidth - 2 * config.debugMargin,
             config.screenHeight - 2 * config.debugMargin,
         )
+        self.rect = pg.Rect((-self.PAD_X, -self.PAD_Y), size)
+
+        self.image = utils.new_surface(size)
+        self.drawImage = self.image.copy()
+        self.floorImage = self.image.copy()
+
+        if CLIP:
+            clip_rect = (
+                (self.PAD_X + config.debugMargin - self.GX,
+                    self.PAD_Y + config.debugMargin - self.GY),
+                add(innerSize, (2 * self.GX, 2 * self.GY)),
+            )
+            self.image.set_clip(clip_rect)
+            self.drawImage.set_clip(clip_rect)
+
+        self.currentPos = (0, 0)
+        self.directionQueue = []
+        self.xmax = xmax
+        self.ymax = ymax
         self.looper = ScrollLooper(
             # (config.screenWidth, config.screenHeight),  # size
             innerSize,  # size
             (self.GX, self.GY),  # grid size
         )
-        self.clip_rect = ((config.debugMargin, config.debugMargin), innerSize)
 
         self._gridTextureCache = pylru.lrucache(2 ** 12)
         # self._gridTextureCache = {}
         self._dirty = threading.Condition()
         self._swapped = False
+        self._drawnPos = (-1, -1)
         self._quit = False
         self.drawLock = threading.Lock()
         if config.smoothTicks > 1:
@@ -92,17 +99,14 @@ class ScrollMap(sprite.Sprite):
         return (dx * self.BASE_X[0] + dy * self.BASE_Y[0],
                 dx * self.BASE_X[1] + dy * self.BASE_Y[1])
 
-    def draw_grid(self, pos, surface_pos):
+    # This method shound be overrided. It loads the grid's texture, except 
+    # the floor.
+    def load_grid_texture(self, pos):
         raise NotImplementedError
 
-    def blit_texture(self, texture_id, height):
-        if texture_id == -1:
-            return
-        texture = self.textures.get(texture_id, -1)
-        if texture is None:
-            # utils.debug('Invalid to blit None on {}'.format(surface_pos))
-            return
-        self._texturesToMerge.append((height, texture))
+    # This method shound be overrided. It loads the grid's floor texture
+    def get_floor_texture(self, pos):
+        raise NotImplementedError
 
     def move_to(self, pos):
         # utils.debug("Move to", pos)
@@ -120,88 +124,59 @@ class ScrollMap(sprite.Sprite):
     def redraw(self):
         with self.drawLock:
             x, y = self.currentPos
+            x1, y1 = self._drawnPos
+            dir = minus(self.currentPos, self._drawnPos)
             self._swapped = False
             image = self.drawImage
             centerX, centerY = image.get_rect().center
+            centerY -= config.bottomPadding // 2
             GX, GY = self.GX, self.GY
             utils.clear_surface(image)
-            if CLIP:
-                image.set_clip(self.clip_rect)
             self.cnt = 0
+
+            def convert(dx, dy, texture):
+                return (centerX + (dx - dy) * GX - texture.xoff,
+                        centerY + (dx + dy) * GY - texture.yoff)
+
+            # Draw floor
+            floor = self.floorImage
+            if dir in config.Directions.all:
+                # draw delta floor
+                dx, dy = negate(dir)
+                floor.scroll((dx - dy) * GX, (dx + dy) * GY)
+                for dx, dy in self.looper.iter_delta(dir):
+                    texture = self.get_floor_texture((x + dx, y + dy))
+                    if not texture:
+                        continue
+                    floor.blit(texture.image, convert(dx, dy, texture))
+                    self.cnt += 1
+            else:
+                # redraw floor
+                utils.clear_surface(floor)
+                for dx, dy in self.looper.iter():
+                    pos = x + dx, y + dy
+                    texture = self.get_floor_texture(pos)
+                    if not texture:
+                        continue
+                    floor.blit(texture.image, convert(dx, dy, texture))
+                    self.cnt += 1
+            # rect = pg.Rect((0, 0), 
+            #     (GX * 2 + config.screenWidth, GY * 2 + config.screenHeight))
+            # rect.center = floor.get_rect().center
+            # image.blit(floor, (self.PAD_X - GX, self.PAD_Y - GY), rect)
+            image.blit(floor, (0, 0))
+
+            # Draw other
             for dx, dy in self.looper.iter():
                 pos = x + dx, y + dy
-                sx = centerX + (dx - dy) * GX
-                sy = centerY + (dx + dy) * GY
                 texture = self.get_grid_texture(pos)
                 if not texture:
                     continue
-                self.drawImage.blit(
-                    texture.image, 
-                    (sx - texture.xoff, sy - texture.yoff)
-                )
+                image.blit(texture.image, convert(dx, dy, texture))
                 self.cnt += 1
+
             # utils.debug('cnt:', self.cnt)
-
-    def make_minimap(self, save_to, scale=1 / 4):
-        gx = self.GX * scale
-        gy = self.GY * scale
-        print('gx gy:', (gx, gy))
-        xmax, ymax = self.xmax, self.ymax
-        # xmax //= 2
-        # ymax //= 2
-        # Left most grid: (0, ymax) 
-        # Right most grid: (xmax, 0)
-        # Top most grid: (0, 0)
-        # Bottom most grid: (xmax, ymax)
-        centerX, centerY = 0, 0
-        open(save_to, 'wb').close()
-
-        # Function to convert from grid to surface
-        def to_spos(pos):
-            x, y = pos
-            return ((centerX + (x - y) * gx), ((x + y + 1) * gy))
-
-        width = int(gx * 2 + minus(to_spos((xmax, 0)), to_spos((0, ymax)))[0])
-        height = int(gy * 2 + minus(to_spos((xmax, ymax)), to_spos((0, 0)))[1])
-
-        progress = utils.ProgressBar(xmax * ymax)
-
-        surface = pg.Surface((width, height)).convert_alpha()
-        print('dest size:', surface.get_size())
-        centerX, centerY = surface.get_rect().center
-
-        utils.clear_surface(surface)
-        tmpSize = tmpWidth, tmpHeight = (2 ** 12,) * 2
-        print('tmp buffer size:', tmpSize)
-        tmpScaleSize = (int(tmpWidth * scale), int(tmpHeight * scale))
-        print('tmpScaleSize:', tmpScaleSize)
-        tmpSurface = pg.Surface(tmpSize).convert_alpha()
-        blockDx = blockDy = int(min(tmpWidth / self.GX / 2, tmpHeight / self.GY / 2))
-
-        for blockX in range(0, xmax, blockDx):
-            for blockY in range(0, ymax, blockDy):
-                utils.clear_surface(tmpSurface)
-                for x in range(blockDx):
-                    for y in range(blockDy):
-                        if not 0 <= x < xmax or not 0 <= y < ymax:
-                            continue
-                        texture = self.get_grid_texture((blockX + x, blockY + y))
-                        if texture:
-                            spos = (
-                                tmpWidth / 2 - texture.xoff + (x - y) * self.GX, 
-                                -texture.yoff + (x + y + 1) * self.GY,
-                            )
-                            tmpSurface.blit(texture.image, spos)
-                        progress.update()
-
-                surface.blit(
-                    pg.transform.scale(tmpSurface, tmpScaleSize),
-                    minus(to_spos((blockX, blockY)), (tmpScaleSize[0] / 2 + .5, gy + .5))
-                )
-                # print((blockX, blockY), to_spos((blockX, blockY)))
-
-        pg.image.save(surface, save_to)
-        print('\nfinished')
+            self._drawnPos = self.currentPos
 
     def drawer(self):
         while not self._quit:
@@ -211,28 +186,39 @@ class ScrollMap(sprite.Sprite):
                 break
             self.redraw()
 
+    def merge_textures(self, data):
+        """
+        data: A list of (id, height) tuples.
+        """
+        texturesToMerge = []
+        for id, height in data:
+            if id <= 0:
+                continue
+            texture = self.textures.get(id)
+            if texture is None: 
+                continue
+            texturesToMerge.append((height, texture))
+
+        if not texturesToMerge:
+            return None
+        rects = [
+            pg.Rect((-t.xoff, -t.yoff - height), t.image.get_size()) 
+            for height, t in texturesToMerge
+        ]
+        rect = rects[0].unionall(rects)
+        image = utils.new_surface(rect.size)
+        # image.fill((0x50, 0x50, 0x50, 100))
+        x, y = -rect.x, -rect.y
+        for height, t in texturesToMerge:
+            image.blit(t.image, (x - t.xoff, y - t.yoff - height))
+        return Texture(x, y, image)
+
     def get_grid_texture(self, pos):
         if pos in self._gridTextureCache:
             texture = self._gridTextureCache[pos]
         else:
-            self._texturesToMerge = []
-            self.draw_grid(pos)
-            # Merge textures
-            rects = [
-                pg.Rect((-t.xoff, -t.yoff - height), t.image.get_size()) 
-                for height, t in self._texturesToMerge
-            ]
-            if not rects:
-                texture = None
-            else:
-                rect = rects[0].unionall(rects)
-                image = pg.Surface(rect.size).convert_alpha()
-                utils.clear_surface(image)
-                x, y = -rect.x, -rect.y
-                for height, t in self._texturesToMerge:
-                    image.blit(t.image, (x - t.xoff, y - t.yoff - height))
-                texture = Texture(x, y, image)
-                self._gridTextureCache[pos] = texture
+            texture = self.load_grid_texture(pos)
+            self._gridTextureCache[pos] = texture
         return texture
 
     def move(self, direction):
@@ -275,7 +261,8 @@ class ScrollMap(sprite.Sprite):
     def debug_dump(self, getter, topleft=(0, 0), size=None):
         w, h = size = size or (self.xmax, self.ymax)
         x0, y0 = topleft
-        allIds = list({getter(grid) for _, grid in self.iter_grids(topleft, size)})
+        allIds = list({getter(grid) 
+            for _, grid in self.iter_grids(topleft, size)})
         marks = dict(zip(allIds, string.printable))
 
         print('  ', end=' ')
@@ -306,6 +293,67 @@ class ScrollMap(sprite.Sprite):
         legend = [(marks[id], id // 2) for id in marks]
         legend.sort()
         print('\n'.join(map(str, legend)))
+
+    def make_minimap(self, save_to, scale=1 / 4):
+        gx = self.GX * scale
+        gy = self.GY * scale
+        print('gx gy:', (gx, gy))
+        xmax, ymax = self.xmax, self.ymax
+        # xmax //= 2
+        # ymax //= 2
+        # Left most grid: (0, ymax) 
+        # Right most grid: (xmax, 0)
+        # Top most grid: (0, 0)
+        # Bottom most grid: (xmax, ymax)
+        centerX, centerY = 0, 0
+        open(save_to, 'wb').close()
+
+        # Function to convert from grid to surface
+        def to_spos(pos):
+            x, y = pos
+            return ((centerX + (x - y) * gx), ((x + y + 1) * gy))
+
+        width = int(gx * 2 + minus(to_spos((xmax, 0)), to_spos((0, ymax)))[0])
+        height = int(gy * 2 + minus(to_spos((xmax, ymax)), to_spos((0, 0)))[1])
+
+        progress = utils.ProgressBar(xmax * ymax)
+
+        surface = utils.new_surface((width, height))
+        print('dest size:', surface.get_size())
+        centerX, centerY = surface.get_rect().center
+
+        utils.clear_surface(surface)
+        tmpSize = tmpWidth, tmpHeight = (2 ** 12,) * 2
+        print('tmp buffer size:', tmpSize)
+        tmpScaleSize = (int(tmpWidth * scale), int(tmpHeight * scale))
+        print('tmpScaleSize:', tmpScaleSize)
+        tmpSurface = utils.new_surface(tmpSize)
+        blockDx = blockDy = int(min(tmpWidth / self.GX / 2, tmpHeight / self.GY / 2))
+
+        for blockX in range(0, xmax, blockDx):
+            for blockY in range(0, ymax, blockDy):
+                utils.clear_surface(tmpSurface)
+                for x in range(blockDx):
+                    for y in range(blockDy):
+                        if not 0 <= x < xmax or not 0 <= y < ymax:
+                            continue
+                        texture = self.get_grid_texture((blockX + x, blockY + y))
+                        if texture:
+                            spos = (
+                                tmpWidth / 2 - texture.xoff + (x - y) * self.GX, 
+                                -texture.yoff + (x + y + 1) * self.GY,
+                            )
+                            tmpSurface.blit(texture.image, spos)
+                        progress.update()
+
+                surface.blit(
+                    pg.transform.scale(tmpSurface, tmpScaleSize),
+                    minus(to_spos((blockX, blockY)), (tmpScaleSize[0] / 2 + .5, gy + .5))
+                )
+                # print((blockX, blockY), to_spos((blockX, blockY)))
+
+        pg.image.save(surface, save_to)
+        print('\nfinished')
 
 
 class SimpleRateAdjuster:
@@ -353,16 +401,29 @@ class ScrollLooper:
         gx, gy = grid_size
         rx = int(w / (2 * gx) + .99999) + 2
         ry = int(h / (2 * gy) + .99999) + 2
-        self._kRange = (-ry, ry + 15)
-        self._tRange = (-rx, rx + 3)
+        kL, kR = self._kRange = (-ry, ry + 18 + 1)
+        tL, tR = self._tRange = (-rx, rx + 2 + 1)
 
         self._list = []
+        D = config.Directions
+        self._deltaLists = {d: [] for d in D.all}
+
         for k in range(*self._kRange):
             for t in range(*self._tRange):
                 if (t + k) % 2 == 0:
-                    dx = (t + k) // 2
-                    dy = (k - t) // 2
-                    self._list.append((dx, dy))
+                    dxy = (t + k) // 2, (k - t) // 2
+                    self._list.append(dxy)
+                    if k == kL or t == tR - 1:
+                        self._deltaLists[D.up].append(dxy)
+                    if k == kR - 1 or t == tL:
+                        self._deltaLists[D.down].append(dxy)
+                    if k == kL or t == tL:
+                        self._deltaLists[D.left].append(dxy)
+                    if k == kR - 1 or t == tR - 1:
+                        self._deltaLists[D.right].append(dxy)
+
+    def iter_delta(self, direction):
+        return self._deltaLists[direction]
 
     def iter(self):
         return self._list

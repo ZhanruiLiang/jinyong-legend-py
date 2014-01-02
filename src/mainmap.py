@@ -26,17 +26,23 @@ class MainMap(ScrollMap):
         with open(config.resource('data', name + '.002'), 'rb') as file002:
             return array.array(TYPE_CODE, file002.read())
 
-    def draw_grid(self, pos):
+    # Override this for ScrollMap
+    def get_floor_texture(self, pos):
+        grid = self.get_grid(pos)
+        if grid and grid.earth > 0:
+            return self.textures.get(grid.earth)
+        return None
+
+    # Override this for ScrollMap
+    def load_grid_texture(self, pos):
         grid = self.get_grid(pos, None)
         if grid is None:
-            return
-        if config.drawFloor:
-            if grid.earth > 0:
-                self.blit_texture(grid.earth, 0)
-        if grid.surface > 0:
-            self.blit_texture(grid.surface, 0)
-        if grid.building > 0:
-            self.blit_texture(grid.building, 0)
+            return None
+        return self.merge_textures([
+            # (grid.earth, 0),
+            (grid.surface, 0),
+            (grid.building, 0),
+        ])
 
     def get_grid(self, pos, default=None):
         x, y = pos
