@@ -1,11 +1,13 @@
+from array import array
+import string
+from collections import namedtuple
+
+import pylru
+
 import texture
 import config
-import array
-import pylru
 import utils
-from collections import namedtuple
 from scrollmap import ScrollMap
-import string
 
 GRID_FIELD_NUM = 6
 EVENT_FIELD_NUM = 11
@@ -43,6 +45,9 @@ def get_textures():
         textures = texture.TextureGroup('smap')
     return textures
 
+# Typecode 'h' means signed short int.
+TYPE_CODE = 'h'
+
 class Scene(ScrollMap):
     """
     grids
@@ -51,18 +56,19 @@ class Scene(ScrollMap):
     """
     width = config.sceneMapXMax
     height = config.sceneMapYMax
-    # Typecode 'h' means signed short int.
-    TYPE_CODE = 'h'
 
     def __init__(self, id, meta_data, sbytes, ebytes):
         ScrollMap.__init__(self, self.width, self.height)
         self.id = id
-        sbuf = array.array(self.TYPE_CODE, sbytes)
-        ebuf = array.array(self.TYPE_CODE, ebytes)
+        sbuf = array(TYPE_CODE, sbytes)
+        ebuf = array(TYPE_CODE, ebytes)
         del sbytes, ebytes
 
         self.grids = [Grid(*x) for x in self._extract(sbuf, GRID_FIELD_NUM)]
-        self.events = [Event(*x) for x in self._extract(ebuf, EVENT_FIELD_NUM)]
+        self.events = [
+            Event(*ebuf[i:i + EVENT_FIELD_NUM]) 
+            for i in range(0, len(ebuf), EVENT_FIELD_NUM)
+        ]
         self.metaData = meta_data
         self.set_texture_group(get_textures())
 
@@ -79,6 +85,10 @@ class Scene(ScrollMap):
         ]
         return itemDatas
 
+    @staticmethod
+    def _repack(items, nFields):
+        return array(TYPE_CODE, (x[j] for j in range(nFields) for x in items))
+
     @property
     def entrance(self):
         return self.metaData['入口X'], self.metaData['入口Y']
@@ -88,8 +98,8 @@ class Scene(ScrollMap):
         return self.metaData['名称']
 
     def save(self):
-        sbytes = b''.join(array.array(self.TYPE_CODE, *g).tobytes() for g in self.grids)
-        ebytes = b''.join(array.array(self.TYPE_CODE, *e).tobytes() for e in self.events)
+        sbytes = self._repack(self.grids, GRID_FIELD_NUM).tobytes()
+        ebytes = b''.join(array(TYPE_CODE, e).tobytes() for e in self.events)
         return sbytes, ebytes
 
     def iter_grids(self):
@@ -111,7 +121,8 @@ class Scene(ScrollMap):
         print()
 
         for y in range(self.height):
-            print('{}{}'.format((y // 10 if y % 10 == 0 else ' '), y % 10), end=' ')
+            print('{}{}'.format((y // 10 if y % 10 == 0 else ' '), y % 10),
+                end=' ')
             for x in range(self.width):
                 grid = self.get_grid((x, y))
                 if grid[field] == -1:
@@ -124,7 +135,7 @@ class Scene(ScrollMap):
                     c = ' '
                 print(c, end=' ')
             print()
-        legend = [(marks[id], id) for id in marks]
+        legend = [(marks[id], id // 2) for id in marks]
         legend.sort()
         print('\n'.join(map(str, legend)))
 
@@ -147,6 +158,11 @@ class Scene(ScrollMap):
         # draw floating
         if grid.float > 0:
             self.blit_texture(grid.float, surface_pos, grid.floatHeight)
+        # draw event
+        if grid.event >= 0:
+            event = self.events[grid.event]
+            # utils.debug("event:", event.texture, event)
+            self.blit_texture(event.texture, surface_pos, grid.height)
 
     def get_grid(self, pos):
         x, y = pos
@@ -168,13 +184,17 @@ class SceneGroup:
         self.sceneBuffer = scene_file.read()
         self.eventBuffer = event_file.read()
         self.metaDatas = meta_datas
-        self._scenes = pylru.lrucache(config.sceneCacheNum)
+        self._dirtyScenes = set()
+        self._scenes = pylru.lrucache(config.sceneCacheNum, self.on_eject)
         self._nameToId = {
             meta['名称'].replace('\x00', ''): id 
             for id, meta in enumerate(meta_datas)
         }
         print(self._nameToId)
         return self
+
+    def on_eject(self, id, scene):
+        self._dirtyScenes.add(id)
 
     def save(self, scene_file, event_file):
         """
@@ -186,7 +206,9 @@ class SceneGroup:
         # First write the buffers that loaded before any modification
         scene_file.write(self.sceneBuffer)
         event_file.write(self.eventBuffer)
-        for id, scene in self._scenes.items():
+        utils.debug('save:', self._dirtyScenes)
+        for id in self._dirtyScenes:
+            scene = self.get(id)
             sbuf, ebuf = scene.save()
 
             scene_file.seek(SCENE_BLOCK_SIZE * id)
@@ -206,8 +228,8 @@ class SceneGroup:
             return self._scenes[id]
         scene = self._load_scene(id)
         self._scenes[id] = scene
+        self._dirtyScenes.add(id)
         return scene
 
     def get_by_name(self, name):
         return self.get(self._nameToId[name])
-

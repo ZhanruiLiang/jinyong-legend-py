@@ -97,9 +97,10 @@ class TextureGroup:
     def _parse_RLE(self, data):
         # Parse a little endian unsigned short
         pallette = get_pallette()
-        w, h, xoff, yoff = struct.unpack('<4H', data[:8])
+        w, h, xoff, yoff = struct.unpack('4h', data[:8])
         surface = pg.Surface((w, h), 0, 32).convert_alpha()
         surface.fill((0, 0, 0, 0))
+        pixels = pg.pixelarray.PixelArray(surface)
         # Start run length decoding
         rle = array.array(TYPE_CODE, data[8:])
         del data
@@ -124,7 +125,8 @@ class TextureGroup:
                 p += 1
                 for j in range(nSolidPixels):
                     assert x < w
-                    surface.set_at((x, y), pallette.get(rle[p]))
+                    # surface.set_at((x, y), pallette.get(rle[p]))
+                    pixels[x, y] = pallette.get(rle[p])
                     p += 1
                     x += 1
                 # x exceeded line width, break and read next row

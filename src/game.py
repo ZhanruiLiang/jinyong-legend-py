@@ -184,8 +184,11 @@ Attributes:
         self.init_pg()
 
         self.nextDirection = None
+        self.currentScene = None
 
     def clean_up(self):
+        if self.currentScene:
+            self.currentScene.quit()
         pg.quit()
 
     def play(self):
@@ -199,7 +202,7 @@ Attributes:
 
     def loop(self):
         tm = pg.time.Clock()
-        round = 0
+        self.round = 0
         while self.state is not GameState.EXIT:
             for event in pg.event.get():
                 if event.type == pg.KEYDOWN:
@@ -209,9 +212,9 @@ Attributes:
             self.logic()
             self.render()
             tm.tick(config.FPS)
-            if round % 10 == 0:
-                utils.debug('FPS:', tm.get_fps())
-            round += 1
+            if config.showFPS and self.round % 10 == 0:
+                    utils.debug('FPS:', tm.get_fps())
+            self.round += 1
 
         self.clean_up()
 
@@ -242,9 +245,11 @@ Attributes:
                 self.draw_sprite(self.currentMenu),
             ])
         elif state is GameState.SCENE_MAP:
-            pg.display.update()
-            self.currentScene.render()
-            # pg.display.flip()
+            utils.clear_surface(self.screen)
+            pg.display.update([
+                self.draw_sprite(self.currentScene),
+                # pg.draw.rect(self.screen, (0xff, 0, 0), self.currentScene.clip_rect, 2),
+            ])
         else:
             screen.fill((0, 0, 0, 0))
             # TODO
@@ -254,6 +259,7 @@ Attributes:
         if self.state is GameState.MENU:
             self.currentMenu.update()
         elif self.state is GameState.SCENE_MAP:
+            # self.nextDirection = config.Directions.up
             if self.nextDirection is not None:
                 self.currentScene.move(self.nextDirection)
             self.nextDirection = None

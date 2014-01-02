@@ -26,6 +26,9 @@ def save_load():
     assert r == r1
 
     r = record.Record.load('anger')
+    r.scenes.get(1)
+    r.scenes.get(3)
+    r.scenes.get(6)
     r.save('9')
     r1 = record.Record.load('9')
     assert r == r1
@@ -37,7 +40,8 @@ def scroll():
     g = game.Game()
     g.init()
     g.load_record('1')
-    g.enter_scene('梅莊')
+    # g.enter_scene('梅莊')
+    g.enter_scene('絕情谷底')
     g.loop()
 
 @testcase
@@ -73,7 +77,7 @@ def load_smap(id=70):
     pg.image.save(t1, 'a.png')
     os.system('feh a.png')
 
-@testcase
+# @testcase
 def load_mmap(id):
     import texture
     pg.display.set_mode((1, 1), 0, 32)

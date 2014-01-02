@@ -11,10 +11,14 @@ def resource(*subpaths):
 
 debug = True
 
-FPS = 40
+FPS = 60
+showFPS = True
+smoothTicks = 4
 
 screenWidth = 640
 screenHeight = 480
+debugMargin = 0
+drawDebugRect = True
 # 
 # screenWidth = 1280
 # screenHeight = 700
