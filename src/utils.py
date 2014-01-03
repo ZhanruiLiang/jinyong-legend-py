@@ -1,6 +1,7 @@
 import pygame as pg
 import config
 import inspect
+import builtins
 
 def wait_exit():
     tm = pg.time.Clock()
@@ -99,3 +100,8 @@ def new_surface(size):
     surface.set_colorkey(config.colorKey)
     surface.fill(config.colorKey)
     return surface
+
+if not hasattr(builtins, 'profile'):
+    profile = lambda x: x
+else:
+    profile = builtins.profile

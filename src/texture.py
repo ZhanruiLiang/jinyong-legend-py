@@ -4,6 +4,7 @@ import array
 import config
 import io
 import utils
+from parse_rle import parse_RLE
 
 pallette = None
 
@@ -51,6 +52,9 @@ class Texture:
         self.yoff = yoff
         self.image = image
 
+    def copy(self):
+        return Texture(self.xoff, self.yoff, self.image.copy())
+
 
 class TextureGroup:
     def __init__(self, name):
@@ -59,7 +63,8 @@ class TextureGroup:
         self.idxs = load_idx_file(config.resource('data', name + '.idx'))
         self.grp = load_grp_file(config.resource('data', name + '.grp'))
         self.idxs.append(0)
-        self.textures = [None] * (len(self.idxs) - 1)
+        self.empty = object()
+        self.textures = [self.empty] * (len(self.idxs) - 1)
         utils.debug(name, 'textures:', len(self.textures))
 
     def __len__(self):
@@ -67,17 +72,18 @@ class TextureGroup:
 
     def get(self, id, fail=0):
         id //= 2
-        if not 0 <= id < len(self.textures):
+        textures = self.textures
+        if not 0 <= id < len(textures):
             utils.debug('{}: id: {} not in range {}'.format(
-                self.name, id, (0, len(self.textures) - 1)))
+                self.name, id, (0, len(textures) - 1)))
             return None
-        if self.textures[id] is None:
+        if textures[id] is self.empty:
             texture = self._load_texture(id)
-            self.textures[id] = texture
-        else:
-            texture = self.textures[id]
-        return texture
+            textures[id] = texture
+            return texture
+        return textures[id]
 
+    # @utils.profile
     def _load_texture(self, id):
         start, end = self.idxs[id - 1], self.idxs[id]
         if start == end or start >= len(self.grp):
@@ -92,48 +98,15 @@ class TextureGroup:
             xoff //= 2
             yoff //= 2
         except pg.error:
-            xoff, yoff, image = self._parse_RLE(data)
-
-        return Texture(xoff, yoff, image)
-
-    def _parse_RLE(self, data):
-        # Parse a little endian unsigned short
-        pallette = get_pallette()
-        w, h, xoff, yoff = struct.unpack('4h', data[:8])
-        surface = utils.new_surface((w, h))
-        pixels = pg.pixelarray.PixelArray(surface)
-        # Start run length decoding
-        rle = array.array(TYPE_CODE, data[8:])
-        del data
-        n = len(rle)
-        p = 0
-        for y in range(h):
-            if p >= n:
-                break
-            p0 = p
-            # Read how many RLE items in this row
-            nRLEDataInRow = rle[p]
-            p += 1
-            x = 0
-            while p - p0 < nRLEDataInRow:
-                nEmptyPixels = rle[p]
-                p += 1
-                x += nEmptyPixels
-                # x exceeded line width, break and read next row
-                if x >= w: 
-                    break
-                nSolidPixels = rle[p]
-                p += 1
-                for j in range(nSolidPixels):
-                    assert x < w
-                    # surface.set_at((x, y), pallette.get(rle[p]))
-                    pixels[x, y] = pallette.get(rle[p])
-                    p += 1
-                    x += 1
-                # x exceeded line width, break and read next row
-                if x >= w: 
-                    break
-        return xoff, yoff, surface
+            w, h, xoff, yoff = struct.unpack('4h', data[:8])
+            rle = array.array(TYPE_CODE, data[8:])
+            result = parse_RLE(w, h, get_pallette().colors, rle)
+            image = pg.image.fromstring(result, (w, h), 'RGB').convert()
+            image.set_colorkey(config.colorKey)
+        w, h = image.get_size()
+        if w * h > 1:
+            return Texture(xoff, yoff, image)
+        return None
 
     def get_all(self):
         for id in range(len(self.idxs) - 1):

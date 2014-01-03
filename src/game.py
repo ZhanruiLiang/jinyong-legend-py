@@ -217,7 +217,7 @@ Attributes:
             self.render()
             tm.tick(config.FPS)
             if config.showFPS and self.round % 30 == 0:
-                    utils.debug('FPS:', tm.get_fps())
+                print('\rFPS: {:.1f}'.format(tm.get_fps()), end='')
             self.round += 1
 
         self.clean_up()
@@ -314,7 +314,7 @@ Attributes:
     def enter_main_map(self):
         self.state = GameState.MAIN_MAP
         self.currentMap = MainMap.get_instance()
-        self.currentMap.move_to((200, 200))
+        self.currentMap.move_to((267, 323))
         utils.debug("enter main map")
 
     def enter_scene(self, id):

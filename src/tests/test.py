@@ -88,6 +88,15 @@ def load_smap(id=70):
     os.system('feh a.png')
 
 @testcase
+def load_mmap(id):
+    import texture
+    pg.display.set_mode((1, 1), 0, 32)
+    tg = texture.TextureGroup('mmap')
+    t1 = tg.get(int(id)).image
+    pg.image.save(t1, 'a.png')
+    os.system('feh a.png')
+
+@testcase
 def map_size():
     import texture
     pg.display.set_mode((1, 1), 0, 32)

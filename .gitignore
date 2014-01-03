@@ -20,3 +20,7 @@ wqy-microhei.ttc
 /src/tests/tags
 /src/xx
 /src/xx.prof
+/src/_parse_rle/parse_rle.so
+/src/_parse_rle/tmp.c
+/src/pyxlru.c
+/src/_pyxlru.pyx

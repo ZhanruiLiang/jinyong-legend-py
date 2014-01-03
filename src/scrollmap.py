@@ -2,7 +2,8 @@ import pygame as pg
 import threading
 import string
 
-import pylru
+import pyxlru
+# import pylru
 
 import config
 import utils
@@ -62,8 +63,9 @@ class ScrollMap(sprite.Sprite):
             (self.GX, self.GY),  # grid size
         )
 
-        # self._gridTextureCache = pylru.lrucache(2 ** 12)
-        self._gridTextureCache = {}
+        # self._gridTextureCache = pylru.lrucache(config.mainMapCacheSize)
+        self._gridTextureCache = pyxlru.lru(config.mainMapCacheSize)
+        # self._gridTextureCache = {}
         self._dirty = threading.Condition()
         self._swapped = False
         self._drawnPos = (-1, -1)
@@ -121,6 +123,7 @@ class ScrollMap(sprite.Sprite):
         with self._dirty:
             self._dirty.notify_all()
 
+    @utils.profile
     def redraw(self):
         with self.drawLock:
             x, y = self.currentPos
@@ -138,29 +141,30 @@ class ScrollMap(sprite.Sprite):
                         centerY + (dx + dy) * GY - texture.yoff)
 
             utils.clear_surface(image)
-            # Draw floor
-            floor = self.floorImage
-            if dir in config.Directions.all:
-                # draw delta floor
-                dx, dy = negate(dir)
-                floor.scroll((dx - dy) * GX, (dx + dy) * GY)
-                for dx, dy in self.looper.iter_delta(dir):
-                    texture = self.get_floor_texture((x + dx, y + dy))
-                    if not texture:
-                        texture = self.textures.get(0)
-                    floor.blit(texture.image, convert(dx, dy, texture))
-                    self.cnt += 1
-            else:
-                # redraw floor
-                utils.clear_surface(floor)
-                for dx, dy in self.looper.iter():
-                    pos = x + dx, y + dy
-                    texture = self.get_floor_texture(pos)
-                    if not texture:
-                        continue
-                    floor.blit(texture.image, convert(dx, dy, texture))
-                    self.cnt += 1
-            image.blit(floor, (0, 0))
+            if config.drawFloor:
+                # Draw floor
+                floor = self.floorImage
+                if dir in config.Directions.all:
+                    # draw delta floor
+                    dx, dy = negate(dir)
+                    floor.scroll((dx - dy) * GX, (dx + dy) * GY)
+                    for dx, dy in self.looper.iter_delta(dir):
+                        texture = self.get_floor_texture((x + dx, y + dy))
+                        if not texture:
+                            texture = self.textures.get(0)
+                        floor.blit(texture.image, convert(dx, dy, texture))
+                        self.cnt += 1
+                else:
+                    # redraw floor
+                    utils.clear_surface(floor)
+                    for dx, dy in self.looper.iter():
+                        pos = x + dx, y + dy
+                        texture = self.get_floor_texture(pos)
+                        if not texture:
+                            continue
+                        floor.blit(texture.image, convert(dx, dy, texture))
+                        self.cnt += 1
+                image.blit(floor, (0, 0))
 
             # Draw other
             for dx, dy in self.looper.iter():
@@ -182,6 +186,7 @@ class ScrollMap(sprite.Sprite):
                 break
             self.redraw()
 
+    # @utils.profile
     def merge_textures(self, data):
         """
         data: A list of (id, height) tuples.
@@ -209,10 +214,11 @@ class ScrollMap(sprite.Sprite):
             image.blit(t.image, (x - t.xoff, y - t.yoff - height))
         return Texture(x, y, image)
 
+    @utils.profile
     def get_grid_texture(self, pos):
-        if pos in self._gridTextureCache:
+        try:
             texture = self._gridTextureCache[pos]
-        else:
+        except KeyError:
             texture = self.load_grid_texture(pos)
             self._gridTextureCache[pos] = texture
         return texture

@@ -1,5 +1,6 @@
 import os
 import pygame as pg
+import pyximport; pyximport.install()
 
 resourceRoot = 'resource'
 
@@ -9,15 +10,15 @@ class Directions:
 def resource(*subpaths):
     return os.path.join(resourceRoot, *subpaths)
 
-debug = True
+debug = 0
 
 FPS = 30
 showFPS = 1
-smoothTicks = 1
+smoothTicks = 3
 drawFloor = 1
 
-screenWidth, screenHeight = 640, 480
-# screenWidth, screenHeight = 800, 600
+# screenWidth, screenHeight = 640, 480
+screenWidth, screenHeight = 800, 600
 # screenWidth, screenHeight = 1366, 768
 
 depthBits = 32
@@ -87,6 +88,7 @@ sceneCacheNum = 8
 # main map
 mainMapXMax = 480
 mainMapYMax = 480
+mainMapCacheSize = 2 ** 14
 
 directionKeyMap = {
     pg.K_UP: Directions.up, 
