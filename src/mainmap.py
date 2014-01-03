@@ -36,15 +36,12 @@ class MainMap(ScrollMap):
         return None
 
     # Override this for ScrollMap
+    @utils.profile
     def load_grid_texture(self, pos):
         grid = self.get_grid(pos)
         if grid is None:
             return None
-        texture = self.merge_textures([
-            # (grid.earth, 0),
-            (grid.surface, 0),
-            (grid.building, 0),
-        ])
+        texture = self.merge_textures([(grid.surface, 0), (grid.building, 0)])
         # if texture and (grid.buildX or grid.buildY):
         #     f = fonts.get_default_font(8)
         #     bpos = grid.buildX, grid.buildY

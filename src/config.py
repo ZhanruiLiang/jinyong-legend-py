@@ -10,7 +10,7 @@ class Directions:
 def resource(*subpaths):
     return os.path.join(resourceRoot, *subpaths)
 
-debug = 0
+debug = 1
 
 FPS = 30
 showFPS = 1

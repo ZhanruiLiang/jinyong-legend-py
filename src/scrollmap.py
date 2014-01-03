@@ -69,6 +69,7 @@ class ScrollMap(sprite.Sprite):
         self._dirty = threading.Condition()
         self._swapped = False
         self._drawnPos = (-1, -1)
+        self._lastNonEmptyPoses = []
         self._quit = False
         self.drawLock = threading.Lock()
         if config.smoothTicks > 1:
@@ -134,48 +135,58 @@ class ScrollMap(sprite.Sprite):
             centerX, centerY = image.get_rect().center
             centerY -= config.bottomPadding // 2
             GX, GY = self.GX, self.GY
-            self.cnt = 0
 
             def convert(dx, dy, texture):
                 return (centerX + (dx - dy) * GX - texture.xoff,
                         centerY + (dx + dy) * GY - texture.yoff)
 
+            def draw_other():
+                total = 0
+                cnt = 0
+                for dx, dy in self.looper.iter():
+                    total += 1
+                    pos = x + dx, y + dy
+                    texture = get_grid_texture(pos)
+                    if texture:
+                        cnt += 1
+                        spos = convert(dx, dy, texture)
+                        image.blit(texture.image, spos)
+                utils.debug('draw rate:', cnt / total, cnt, total)
+
+            # Speed up by removing 'self.*' in inner loop
+            get_grid_texture = self.get_grid_texture
+            get_floor_texture = self.get_floor_texture
+            floor = self.floorImage
+
+            deltaDraw = dir in config.Directions.all
+
             utils.clear_surface(image)
-            if config.drawFloor:
-                # Draw floor
-                floor = self.floorImage
-                if dir in config.Directions.all:
-                    # draw delta floor
+            if deltaDraw:
+                if config.drawFloor:
+                    # Delta draw floor
                     dx, dy = negate(dir)
                     floor.scroll((dx - dy) * GX, (dx + dy) * GY)
                     for dx, dy in self.looper.iter_delta(dir):
-                        texture = self.get_floor_texture((x + dx, y + dy))
+                        texture = get_floor_texture((x + dx, y + dy))
                         if not texture:
                             texture = self.textures.get(0)
                         floor.blit(texture.image, convert(dx, dy, texture))
-                        self.cnt += 1
-                else:
-                    # redraw floor
-                    utils.clear_surface(floor)
-                    for dx, dy in self.looper.iter():
-                        pos = x + dx, y + dy
-                        texture = self.get_floor_texture(pos)
-                        if not texture:
-                            continue
-                        floor.blit(texture.image, convert(dx, dy, texture))
-                        self.cnt += 1
+                    image.blit(floor, (0, 0))
+                    # Delta draw other
+                    draw_other()
+            else:  # Redraw
+                # Redraw floor
+                utils.clear_surface(floor)
+                for dx, dy in self.looper.iter():
+                    pos = x + dx, y + dy
+                    texture = get_floor_texture(pos)
+                    if texture:
+                        spos = convert(dx, dy, texture)
+                        floor.blit(texture.image, spos)
                 image.blit(floor, (0, 0))
+                # Delta draw other
+                draw_other()
 
-            # Draw other
-            for dx, dy in self.looper.iter():
-                pos = x + dx, y + dy
-                texture = self.get_grid_texture(pos)
-                if not texture:
-                    continue
-                image.blit(texture.image, convert(dx, dy, texture))
-                self.cnt += 1
-
-            # utils.debug('cnt:', self.cnt)
             self._drawnPos = (x, y)
 
     def drawer(self):
@@ -186,7 +197,7 @@ class ScrollMap(sprite.Sprite):
                 break
             self.redraw()
 
-    # @utils.profile
+    @utils.profile
     def merge_textures(self, data):
         """
         data: A list of (id, height) tuples.
@@ -214,7 +225,7 @@ class ScrollMap(sprite.Sprite):
             image.blit(t.image, (x - t.xoff, y - t.yoff - height))
         return Texture(x, y, image)
 
-    @utils.profile
+    # @utils.profile
     def get_grid_texture(self, pos):
         try:
             texture = self._gridTextureCache[pos]

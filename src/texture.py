@@ -4,9 +4,7 @@ import array
 import config
 import io
 import utils
-from parse_rle import parse_RLE
-
-pallette = None
+from parse_rle import load_pallette, parse_RLE
 
 # TYPE_CODE will be used to :
 # * decode pallette file
@@ -39,12 +37,7 @@ class Pallette:
         return self.colors[idx]
 
 
-def get_pallette():
-    global pallette
-    if pallette is None:
-        pallette = Pallette(config.palletteFile)
-    return pallette
-
+load_pallette(Pallette(config.palletteFile).colors)
 
 class Texture:
     def __init__(self, xoff, yoff, image):
@@ -100,7 +93,7 @@ class TextureGroup:
         except pg.error:
             w, h, xoff, yoff = struct.unpack('4h', data[:8])
             rle = array.array(TYPE_CODE, data[8:])
-            result = parse_RLE(w, h, get_pallette().colors, rle)
+            result = parse_RLE(w, h, rle)
             image = pg.image.fromstring(result, (w, h), 'RGB').convert()
             image.set_colorkey(config.colorKey)
         w, h = image.get_size()
