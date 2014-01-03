@@ -17,6 +17,8 @@ showFPS = 1
 smoothTicks = 3
 drawFloor = 1
 
+# screenWidth, screenHeight = 160, 120
+# screenWidth, screenHeight = 320, 240
 # screenWidth, screenHeight = 640, 480
 screenWidth, screenHeight = 800, 600
 # screenWidth, screenHeight = 1366, 768

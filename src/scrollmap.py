@@ -1,9 +1,9 @@
 import pygame as pg
 import threading
 import string
+from collections import deque
 
 import pyxlru
-# import pylru
 
 import config
 import utils
@@ -26,8 +26,8 @@ class ScrollMap(sprite.Sprite):
     GY = config.textureYScale
     BASE_X = (GX, GY)
     BASE_Y = (-GX, GY)
-    PAD_X = GX * 6
-    PAD_Y = GY * 8
+    PAD_X = GX * 8
+    PAD_Y = GY * 10
 
     def __init__(self, xmax, ymax):
         size = (
@@ -63,15 +63,14 @@ class ScrollMap(sprite.Sprite):
             (self.GX, self.GY),  # grid size
         )
 
-        # self._gridTextureCache = pylru.lrucache(config.mainMapCacheSize)
         self._gridTextureCache = pyxlru.lru(config.mainMapCacheSize)
         # self._gridTextureCache = {}
         self._dirty = threading.Condition()
         self._swapped = False
         self._drawnPos = (-1, -1)
-        self._lastNonEmptyPoses = []
+        self._rows = deque()
         self._quit = False
-        self.drawLock = threading.Lock()
+        self.drawLock = threading.RLock()
         if config.smoothTicks > 1:
             self.drawerThread = threading.Thread(target=self.drawer)
             self.drawerThread.start()
@@ -127,9 +126,9 @@ class ScrollMap(sprite.Sprite):
     @utils.profile
     def redraw(self):
         with self.drawLock:
-            x, y = self.currentPos
+            currentX, currentY = self.currentPos
             x1, y1 = self._drawnPos
-            dir = minus((x, y), self._drawnPos)
+            dir = minus((currentX, currentY), self._drawnPos)
             self._swapped = False
             image = self.drawImage
             centerX, centerY = image.get_rect().center
@@ -140,22 +139,10 @@ class ScrollMap(sprite.Sprite):
                 return (centerX + (dx - dy) * GX - texture.xoff,
                         centerY + (dx + dy) * GY - texture.yoff)
 
-            def draw_other():
-                total = 0
-                cnt = 0
-                for dx, dy in self.looper.iter():
-                    total += 1
-                    pos = x + dx, y + dy
-                    texture = get_grid_texture(pos)
-                    if texture:
-                        cnt += 1
-                        spos = convert(dx, dy, texture)
-                        image.blit(texture.image, spos)
-                utils.debug('draw rate:', cnt / total, cnt, total)
-
             # Speed up by removing 'self.*' in inner loop
             get_grid_texture = self.get_grid_texture
             get_floor_texture = self.get_floor_texture
+            looper = self.looper
             floor = self.floorImage
 
             deltaDraw = dir in config.Directions.all
@@ -167,27 +154,74 @@ class ScrollMap(sprite.Sprite):
                     dx, dy = negate(dir)
                     floor.scroll((dx - dy) * GX, (dx + dy) * GY)
                     for dx, dy in self.looper.iter_delta(dir):
-                        texture = get_floor_texture((x + dx, y + dy))
+                        texture = get_floor_texture((currentX + dx, currentY + dy))
                         if not texture:
                             texture = self.textures.get(0)
                         floor.blit(texture.image, convert(dx, dy, texture))
                     image.blit(floor, (0, 0))
-                    # Delta draw other
-                    draw_other()
+                # Delta draw other
+                rows = self._rows
+                kL, kR = looper.kRange
+                tL, tR = looper.tRange
+                if dir == config.Directions.left \
+                        or dir == config.Directions.up:
+                    rows.pop()
+                    rows.appendleft(deque())
+                else:
+                    rows.popleft()
+                    rows.append(deque())
+                if dir == config.Directions.left \
+                        or dir == config.Directions.down:
+                    for row in rows:
+                        if not row:
+                            continue
+                        dx, dy = minus(row[0], (currentX, currentY))
+                        if dx - dy < tL:
+                            row.popleft()
+                else:
+                    for row in rows:
+                        if not row:
+                            continue
+                        dx, dy = minus(row[-1], (currentX, currentY))
+                        if dx - dy >= tR:
+                            row.pop()
+
+                for dx, dy in self.looper.iter_delta(dir):
+                    pos = currentX + dx, currentY + dy
+                    texture = get_grid_texture(pos)
+                    if texture:
+                        rows[dx + dy - kL].append(pos)
+                for row in rows:
+                    for pos in row:
+                        texture = get_grid_texture(pos)
+                        spos = convert(pos[0] - currentX, pos[1] - currentY, texture)
+                        image.blit(texture.image, spos)
             else:  # Redraw
                 # Redraw floor
                 utils.clear_surface(floor)
                 for dx, dy in self.looper.iter():
-                    pos = x + dx, y + dy
+                    pos = currentX + dx, currentY + dy
                     texture = get_floor_texture(pos)
                     if texture:
                         spos = convert(dx, dy, texture)
                         floor.blit(texture.image, spos)
                 image.blit(floor, (0, 0))
                 # Delta draw other
-                draw_other()
+                rows = deque(deque() for k in range(*self.looper.kRange))
+                kL = looper.kRange[0]
+                for dx, dy in self.looper.iter():
+                    pos = currentX + dx, currentY + dy
+                    texture = get_grid_texture(pos)
+                    if texture:
+                        rows[dx + dy - kL].append(pos)
+                        spos = convert(dx, dy, texture)
+                        image.blit(texture.image, spos)
+                self._rows = rows
 
-            self._drawnPos = (x, y)
+            # utils.debug('-' * 30)
+            # for i, row in enumerate(rows):
+            #     utils.debug(i, row)
+            self._drawnPos = (currentX, currentY)
 
     def drawer(self):
         while not self._quit:
@@ -423,15 +457,15 @@ class ScrollLooper:
         gx, gy = grid_size
         rx = int(w / (2 * gx) + .99999) + 2
         ry = int(h / (2 * gy) + .99999) + 2
-        kL, kR = self._kRange = (-ry, ry + 18 + 1)
-        tL, tR = self._tRange = (-rx, rx + 2 + 1)
+        kL, kR = self.kRange = (-ry, ry + 18 + 1)
+        tL, tR = self.tRange = (-rx, rx + 4 + 1)
 
         self._list = []
         D = config.Directions
         self._deltaLists = {d: [] for d in D.all}
 
-        for k in range(*self._kRange):
-            for t in range(*self._tRange):
+        for k in range(*self.kRange):
+            for t in range(*self.tRange):
                 if (t + k) % 2 == 0:
                     dxy = (t + k) // 2, (k - t) // 2
                     self._list.append(dxy)

@@ -40,8 +40,8 @@ def scene():
     g = game.Game()
     g.init()
     g.load_record('1')
-    # g.enter_scene('梅莊')
-    g.enter_scene('絕情谷底')
+    g.enter_scene('梅莊')
+    # g.enter_scene('絕情谷底')
     g.loop()
 
 @testcase
