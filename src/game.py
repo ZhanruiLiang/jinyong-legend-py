@@ -7,6 +7,7 @@ from sprite import Picture
 from record import Record, RecordNotExistError
 from menu import BaseMenu, menuitem
 from mainmap import MainMap
+from combat import CombatMapGroup
 
 
 class GameState:
@@ -157,6 +158,7 @@ class LoadMenu(BaseMenu):
         )
 
 
+@utils.singleton
 class Game:
     """
 Attributes:
@@ -167,6 +169,9 @@ Attributes:
     skills
     shops
     """
+    def __init__(self):
+        pass
+
     def init_pg(self):
         pg.display.init()
         pg.font.init()
@@ -219,7 +224,6 @@ Attributes:
             if config.showFPS and self.round % 30 == 0:
                 print('\rFPS: {:.1f}'.format(tm.get_fps()), end='')
             self.round += 1
-
         self.clean_up()
 
     def quit(self):
@@ -234,7 +238,7 @@ Attributes:
     def on_key_down(self, key, mod):
         if self.state is GameState.MENU:
             self.currentMenu.on_key_down(key)
-        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
+        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
             if key == pg.K_ESCAPE:
                 self.quit()
             if key in config.directionKeyMap:
@@ -257,7 +261,7 @@ Attributes:
                 self.draw_sprite(self.background),
                 self.draw_sprite(self.currentMenu),
             ])
-        elif state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
+        elif state in (GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
             screen.fill((0, 0, 0))
             map = self.currentMap
             screen.blit(map.image, map.rect)
@@ -276,7 +280,7 @@ Attributes:
     def logic(self):
         if self.state is GameState.MENU:
             self.currentMenu.update()
-        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP):
+        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
             self.currentMap.update()
 
     def draw_sprite(self, sp):
@@ -329,6 +333,12 @@ Attributes:
         utils.debug("enter scene:", scene.name)
 
         self.currentMap = scene
+
+    def enter_combat_map(self, id):
+        self.state = GameState.COMBAT_MAP
+        self.currentMap = CombatMapGroup.get_instance().get(id)
+        utils.debug('enter combat map:', id)
+        self.currentMap.move_to((31, 31))
 
 def debugger(game, key, mod):
     if key == pg.K_f:

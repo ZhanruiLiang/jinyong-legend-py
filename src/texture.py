@@ -60,6 +60,13 @@ class TextureGroup:
         self.textures = [self.empty] * (len(self.idxs) - 1)
         utils.debug(name, 'textures:', len(self.textures))
 
+        if config.textureGroupPreloadAll:
+            self.load_all()
+
+    def load_all(self):
+        for i in range(len(self)):
+            self.get(i)
+
     def __len__(self):
         return len(self.textures)
 
@@ -106,10 +113,6 @@ class TextureGroup:
             texture = self.get(id)
             if texture is not None:
                 yield id, texture
-
-
-class MapTextureGroup(TextureGroup):
-    pass
 
 
 class Animation:

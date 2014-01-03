@@ -12,15 +12,15 @@ def resource(*subpaths):
 
 debug = 1
 
-FPS = 30
+FPS = 40
 showFPS = 1
 smoothTicks = 3
 drawFloor = 1
 
 # screenWidth, screenHeight = 160, 120
 # screenWidth, screenHeight = 320, 240
-# screenWidth, screenHeight = 640, 480
-screenWidth, screenHeight = 800, 600
+screenWidth, screenHeight = 640, 480
+# screenWidth, screenHeight = 800, 600
 # screenWidth, screenHeight = 1366, 768
 
 depthBits = 32
@@ -77,6 +77,9 @@ maxItemNumber = 200
 maxCombatEnemyNumber = 20
 
 # textures
+#  If textureGroupPreloadAll is set to True, then all textures in this group
+#  will be parsed when initializing.
+textureGroupPreloadAll = 1
 portraitFilename = 'hdgrp'
 sceneMapFilename = 'smap'
 
@@ -99,3 +102,7 @@ directionKeyMap = {
     pg.K_RIGHT: Directions.right,
 }
 
+# combat map
+combatMapXMax = 64
+combatMapYMax = 64
+combatMapCacheNum = 16

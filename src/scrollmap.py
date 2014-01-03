@@ -29,7 +29,9 @@ class ScrollMap(sprite.Sprite):
     PAD_X = GX * 8
     PAD_Y = GY * 10
 
-    def __init__(self, xmax, ymax):
+    def __init__(self, xmax, ymax, textures):
+        super().__init__()
+        self.textures = textures
         size = (
             config.screenWidth + self.PAD_X * 2, 
             config.screenHeight + self.PAD_Y * 2 + config.bottomPadding,
@@ -86,9 +88,6 @@ class ScrollMap(sprite.Sprite):
         if config.smoothTicks > 1:
             self.notify_redraw()
             self.drawerThread.join()
-
-    def set_texture_group(self, textures):
-        self.textures = textures
 
     def to_gs_pos(self, pos):
         " Convert map pos to global screen pos. "

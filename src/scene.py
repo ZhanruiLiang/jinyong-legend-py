@@ -3,7 +3,7 @@ from collections import namedtuple
 
 import pylru
 
-import texture
+from texture import TextureGroup
 import config
 import utils
 from scrollmap import ScrollMap
@@ -37,13 +37,10 @@ Event = namedtuple('Event', (
     'd10',
 ))
 
-textures = None
-
-def get_textures():
-    global textures
-    if textures is None:
-        textures = texture.TextureGroup('smap')
-    return textures
+@utils.singleton
+class SceneTextures(TextureGroup):
+    def __init__(self):
+        super().__init__('smap')
 
 # Typecode 'h' means signed short int.
 TYPE_CODE = 'h'
@@ -58,36 +55,21 @@ class Scene(ScrollMap):
     height = config.sceneMapYMax
 
     def __init__(self, id, meta_data, sbytes, ebytes):
-        ScrollMap.__init__(self, self.width, self.height)
+        super().__init__(self.width, self.height, SceneTextures.get_instance())
         self.id = id
         sbuf = array(TYPE_CODE, sbytes)
         ebuf = array(TYPE_CODE, ebytes)
         del sbytes, ebytes
 
-        self.grids = [Grid(*x) for x in self._extract(sbuf, GRID_FIELD_NUM)]
+        self.grids = [Grid(*x) for x in utils.level_extract(sbuf, GRID_FIELD_NUM)]
         self.events = [
             Event(*ebuf[i:i + EVENT_FIELD_NUM]) 
             for i in range(0, len(ebuf), EVENT_FIELD_NUM)
         ]
         self.metaData = meta_data
-        self.set_texture_group(get_textures())
 
         self.debug_dump(0)
         self.debug_dump(1)
-
-    @staticmethod
-    def _extract(data, nFields):
-        assert len(data) % nFields == 0
-        nItems = len(data) // nFields
-        itemDatas = [
-            tuple(data[j * nItems + i] for j in range(nFields))
-            for i in range(nItems)
-        ]
-        return itemDatas
-
-    @staticmethod
-    def _repack(items, nFields):
-        return array(TYPE_CODE, (x[j] for j in range(nFields) for x in items))
 
     @property
     def entrance(self):
@@ -98,7 +80,7 @@ class Scene(ScrollMap):
         return self.metaData['名称']
 
     def save(self):
-        sbytes = self._repack(self.grids, GRID_FIELD_NUM).tobytes()
+        sbytes = utils.repack(self.grids, TYPE_CODE, GRID_FIELD_NUM).tobytes()
         ebytes = b''.join(array(TYPE_CODE, e).tobytes() for e in self.events)
         return sbytes, ebytes
 

@@ -1,7 +1,7 @@
 import pygame as pg
 import config
 
-class Sprite(pg.sprite.Sprite):
+class Sprite:
     def __init__(self):
         super().__init__()
 

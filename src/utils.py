@@ -2,6 +2,7 @@ import pygame as pg
 import config
 import inspect
 import builtins
+from array import array
 
 def wait_exit():
     tm = pg.time.Clock()
@@ -39,7 +40,7 @@ def debug(*args, **kwargs):
     if not config.debug: 
         return 
     global count
-    frame = inspect.stack()[1]
+    # frame = inspect.stack()[1]
     # modules = []
     # stacks = inspect.stack()[1:]
     # for frame in stacks:
@@ -52,7 +53,11 @@ def debug(*args, **kwargs):
 
     def p():
         print('{}: [{}]:'.format(count, modules), *args, **kwargs)
-    modules = inspect.getmodule(inspect.stack()[1][0]).__name__
+    module = inspect.getmodule(inspect.stack()[1][0])
+    if module:
+        modules = module.__name__
+    else:
+        modules = ''
     p()
     kwargs['file'] = _debugLogFile
     p()
@@ -105,3 +110,16 @@ if not hasattr(builtins, 'profile'):
     profile = lambda x: x
 else:
     profile = builtins.profile
+
+
+def level_extract(data, n_fields):
+    assert len(data) % n_fields == 0
+    nItems = len(data) // n_fields
+    itemDatas = [
+        tuple(data[j * nItems + i] for j in range(n_fields))
+        for i in range(nItems)
+    ]
+    return itemDatas
+
+def level_repack(items, typecode, n_fields):
+    return array(typecode, (x[j] for j in range(n_fields) for x in items))

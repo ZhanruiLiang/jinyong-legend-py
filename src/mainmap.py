@@ -6,7 +6,7 @@ import config
 import utils
 import fonts
 from scrollmap import ScrollMap, minus
-import texture
+from texture import TextureGroup
 
 # Typecode 'h' means signed short int.
 TYPE_CODE = 'h'
@@ -18,8 +18,7 @@ Grid = namedtuple('Grid', (
 @utils.singleton
 class MainMap(ScrollMap):
     def __init__(self):
-        self.textures = texture.TextureGroup('mmap')
-        super().__init__(config.mainMapXMax, config.mainMapYMax)
+        super().__init__(config.mainMapXMax, config.mainMapYMax, TextureGroup('mmap'))
         grids = [Grid(*x) for x in zip(*(self.load_002(f) 
             for f in ('earth', 'surface', 'building', 'buildx', 'buildy')))]
         self.grids = grids
@@ -41,21 +40,7 @@ class MainMap(ScrollMap):
         grid = self.get_grid(pos)
         if grid is None:
             return None
-        texture = self.merge_textures([(grid.surface, 0), (grid.building, 0)])
-        # if texture and (grid.buildX or grid.buildY):
-        #     f = fonts.get_default_font(8)
-        #     bpos = grid.buildX, grid.buildY
-        #     if texture.image.get_width() > 1 and pos != bpos:
-        #         utils.debug(pos, bpos, texture.image, grid.building)
-        #         texture = texture.copy()
-        #         # utils.clear_surface(texture.image)
-        #         texture.image.blit(
-        #             f.render('{},{}'.format(*bpos), 0, (0xff, 0x0, 0x0), 
-        #                 config.colorKey), 
-        #             (5, 3),
-        #         )
-        #     else: return None
-        return texture
+        return self.merge_textures([(grid.surface, 0), (grid.building, 0)])
 
     def get_grid(self, pos):
         x, y = pos

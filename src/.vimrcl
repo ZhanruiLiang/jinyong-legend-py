@@ -1,6 +1,6 @@
 map <F5> :!pyrunner3 game.py <CR>
 map <F6> :!pyrunner3 tests/test.py <CR>
-map <F7> :!pyrunner3 tests/test.py mmap <CR>
-map <F9> :!py3 -m cProfile -o xx.prof ./test mmap <CR>
+map <F7> :!pyrunner3 test cmap <CR>
+map <F9> :!py3 -m cProfile -o xx.prof ./test cmap <CR>
 
 let g:syntastic_python_checkers = ['flake8']
