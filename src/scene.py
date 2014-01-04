@@ -3,7 +3,8 @@ from collections import namedtuple
 
 import pylru
 
-from texture import TextureGroup
+from texture import PackedTextureGroup as TextureGroup
+# from texture import TextureGroup
 import config
 import utils
 from scrollmap import ScrollMap
@@ -54,6 +55,7 @@ class Scene(ScrollMap):
     width = config.sceneMapXMax
     height = config.sceneMapYMax
 
+    @utils.profile
     def __init__(self, id, meta_data, sbytes, ebytes):
         super().__init__(self.width, self.height, SceneTextures.get_instance())
         self.id = id
@@ -68,8 +70,8 @@ class Scene(ScrollMap):
         ]
         self.metaData = meta_data
 
-        self.debug_dump(0)
-        self.debug_dump(1)
+        # self.debug_dump(0)
+        # self.debug_dump(1)
 
     @property
     def entrance(self):
@@ -80,7 +82,7 @@ class Scene(ScrollMap):
         return self.metaData['名称']
 
     def save(self):
-        sbytes = utils.repack(self.grids, TYPE_CODE, GRID_FIELD_NUM).tobytes()
+        sbytes = utils.level_repack(self.grids, TYPE_CODE, GRID_FIELD_NUM).tobytes()
         ebytes = b''.join(array(TYPE_CODE, e).tobytes() for e in self.events)
         return sbytes, ebytes
 

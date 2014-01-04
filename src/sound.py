@@ -17,10 +17,12 @@ def play_music(name):
     stop_music()
     filename = config.resource('sound', 
             'game{:02d}.ogg'.format(soundMap['start']))
-    pg.mixer.music.set_volume(config.musicVolume)
-    pg.mixer.music.load(filename)
-    pg.mixer.music.play()
-
+    try:
+        pg.mixer.music.load(filename)
+        pg.mixer.music.set_volume(config.musicVolume)
+        pg.mixer.music.play()
+    except pg.error:
+        pass
 
 def stop_music():
     pg.mixer.music.stop()

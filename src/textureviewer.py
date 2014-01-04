@@ -46,7 +46,7 @@ def viewer(init=None):
         x, y = 0, 0
         rowMaxH = 0
         margin = 2
-        for id, texture in textures.get_all():
+        for id, texture in textures.iter_all():
             image = texture.image
             w1, h1 = image.get_size()
             if x + w1 < w:

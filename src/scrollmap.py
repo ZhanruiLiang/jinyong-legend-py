@@ -75,6 +75,7 @@ class ScrollMap(sprite.Sprite):
         self.drawLock = threading.RLock()
         if config.smoothTicks > 1:
             self.drawerThread = threading.Thread(target=self.drawer)
+            self.drawerThread.daemon = True
             self.drawerThread.start()
         self.rAdjuster = SimpleRateAdjuster()
         # self.rAdjuster = RateAdjuster()
@@ -122,7 +123,7 @@ class ScrollMap(sprite.Sprite):
         with self._dirty:
             self._dirty.notify_all()
 
-    @utils.profile
+    # @utils.profile
     def redraw(self):
         with self.drawLock:
             currentX, currentY = self.currentPos
@@ -230,7 +231,7 @@ class ScrollMap(sprite.Sprite):
                 break
             self.redraw()
 
-    @utils.profile
+    # @utils.profile
     def merge_textures(self, data):
         """
         data: A list of (id, height) tuples.

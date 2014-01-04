@@ -4,9 +4,9 @@ import array
 
 import config
 import utils
-import fonts
-from scrollmap import ScrollMap, minus
-from texture import TextureGroup
+from scrollmap import ScrollMap
+from texture import PackedTextureGroup as TextureGroup
+# from texture import TextureGroup
 
 # Typecode 'h' means signed short int.
 TYPE_CODE = 'h'
@@ -35,7 +35,7 @@ class MainMap(ScrollMap):
         return None
 
     # Override this for ScrollMap
-    @utils.profile
+    # @utils.profile
     def load_grid_texture(self, pos):
         grid = self.get_grid(pos)
         if grid is None:

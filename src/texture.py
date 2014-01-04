@@ -4,6 +4,8 @@ import array
 import config
 import io
 import utils
+import packer
+import weakref
 from parse_rle import load_pallette, parse_RLE
 
 # TYPE_CODE will be used to :
@@ -64,8 +66,9 @@ class TextureGroup:
             self.load_all()
 
     def load_all(self):
-        for i in range(len(self)):
-            self.get(i)
+        for id, texture in self.iter_all():
+            pass
+        del self.idxs, self.grp
 
     def __len__(self):
         return len(self.textures)
@@ -94,6 +97,7 @@ class TextureGroup:
         fileobj = io.BytesIO(data)
         try:
             image = pg.image.load(fileobj, 'png')
+
             xoff, yoff = image.get_size()
             xoff //= 2
             yoff //= 2
@@ -108,12 +112,24 @@ class TextureGroup:
             return Texture(xoff, yoff, image)
         return None
 
-    def get_all(self):
-        for id in range(len(self.idxs) - 1):
-            texture = self.get(id)
+    def iter_all(self):
+        for id in range(len(self.textures)):
+            texture = self.get(id * 2)
             if texture is not None:
                 yield id, texture
 
+
+class PackedTextureGroup(TextureGroup):
+    @utils.profile
+    def __init__(self, name):
+        super().__init__(name)
+        self.load_all()
+        textures = [t for _, t in self.iter_all()]
+        originImages = [weakref.ref(t.image) for t in textures]
+        pack = packer.ImagePack(t.image for t in textures)
+        for t, image in zip(textures, pack.images):
+            t.image = image
+        assert all(x() is None for x in originImages)
 
 class Animation:
     def __init__(self, texture_group, ids):

@@ -1,6 +1,9 @@
 import os
 import pygame as pg
-import pyximport; pyximport.install()
+import pyximport
+pyximport.install()
+
+os.environ['SDL_VIDEO_CENTERED'] = '1'
 
 resourceRoot = 'resource'
 
@@ -79,7 +82,7 @@ maxCombatEnemyNumber = 20
 # textures
 #  If textureGroupPreloadAll is set to True, then all textures in this group
 #  will be parsed when initializing.
-textureGroupPreloadAll = 1
+textureGroupPreloadAll = 0
 portraitFilename = 'hdgrp'
 sceneMapFilename = 'smap'
 
@@ -106,3 +109,6 @@ directionKeyMap = {
 combatMapXMax = 64
 combatMapYMax = 64
 combatMapCacheNum = 16
+
+# Packer
+packerAutoTranspose = 1

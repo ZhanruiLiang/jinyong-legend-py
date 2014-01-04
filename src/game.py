@@ -205,8 +205,8 @@ Attributes:
         self.background = Picture('title.png')
         sound.play_music('start')
 
-        # self.set_menu(StartMenu(self))
-        self.set_menu(LoadMenu(self))
+        self.set_menu(StartMenu(self))
+        # self.set_menu(LoadMenu(self))
         self.loop()
 
     def loop(self):
@@ -230,7 +230,7 @@ Attributes:
         self.state = GameState.EXIT
 
     def set_menu(self, menu):
-        self.currentMap = menu
+        self.currentMenu = menu
         menu.rect.left = int(
             (self.screen.get_width() - menu.image.get_width()) / 2)
         menu.rect.bottom = self.screen.get_height() - 20

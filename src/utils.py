@@ -2,7 +2,10 @@ import pygame as pg
 import config
 import inspect
 import builtins
+import functools
+import time
 from array import array
+from contextlib import contextmanager
 
 def wait_exit():
     tm = pg.time.Clock()
@@ -123,3 +126,67 @@ def level_extract(data, n_fields):
 
 def level_repack(items, typecode, n_fields):
     return array(typecode, (x[j] for j in range(n_fields) for x in items))
+
+def pg_init(size=(800, 600)):
+    pg.display.init()
+    pg.font.init()
+    screen = pg.display.set_mode(size, 0, 32)
+    return screen
+
+def pg_loop(func):
+    """
+    func: (screen, events) -> quit?
+    """
+    if pg.display.get_surface() is None:
+        screen = init_pg()
+    else:
+        screen = pg.display.get_surface()
+    quit = False
+    tm = pg.time.Clock()
+    while not quit:
+        events = pg.event.get()
+        for event in events:
+            if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
+                return
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_f:
+                    pg.display.toggle_fullscreen()
+        quit = func(screen, events)
+        tm.tick(config.FPS)
+
+def timeit(func):
+    @functools.wraps(func)
+    def newfunc(*args, **kwargs):
+        startTime = time.time()
+        func(*args, **kwargs)
+        elapsedTime = time.time() - startTime
+        debug('function [{}] finished in {} ms'.format(
+            func.__name__, int(elapsedTime * 1000)))
+    return newfunc
+
+@contextmanager
+def timeit_context(name):
+    startTime = time.time()
+    yield
+    elapsedTime = time.time() - startTime
+    debug('[{}] finished in {} ms'.format(name, int(elapsedTime * 1000)))
+
+def show_surface(surface):
+    size = surface.get_size()
+    W, H = 1366, 768
+    scale = 1
+    scale = min(1, W / size[0], H / size[1])
+
+    if scale != 1:
+        debug('image too large(size:{}), scale to rate {:.3f}'.format(size, scale))
+        size = int(size[0] * scale), int(size[1] * scale)
+        surface = pg.transform.scale(surface, size)
+    pg_init(size)
+    screen = pg.display.get_surface()
+    screen.fill(0)
+    screen.blit(surface, (0, 0))
+    pg.display.update()
+
+    @pg_loop
+    def loop(screen, events):
+        pass
