@@ -112,3 +112,4 @@ combatMapCacheNum = 16
 
 # Packer
 packerAutoTranspose = 1
+dataFile = resource('data', 'data.dat')

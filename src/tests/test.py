@@ -179,7 +179,7 @@ def extract_3():
 def load_smap(id=70):
     import texture
     utils.pg_init()
-    tg = texture.TextureGroup('smap')
+    tg = texture.TextureGroup.get_group('smap')
     t1 = tg.get(int(id)).image
     utils.show_surface(t1)
 
@@ -187,7 +187,7 @@ def load_smap(id=70):
 def load_mmap(id=0):
     import texture
     utils.pg_init()
-    tg = texture.TextureGroup('mmap')
+    tg = texture.TextureGroup.get_group('mmap')
     t1 = tg.get(int(id)).image
     utils.show_surface(t1)
 
@@ -196,7 +196,7 @@ def map_size():
     import texture
     utils.pg_init()
     for name in ('smap', 'mmap', 'wmap'):
-        tg = texture.TextureGroup(name)
+        tg = texture.TextureGroup.get_group(name)
         print(name, len(tg))
 
 @disable
@@ -213,14 +213,17 @@ def mini_map():
     g.quit()
 
 @testcase
-def packer(map_name='wmap'):
+def packer(map_name='wmap', save_to=None):
     import texture
     import packer
     utils.pg_init()
-    textures = texture.TextureGroup(map_name)
+    textures = texture.TextureGroup.get_group(map_name)
     with utils.timeit_context('Packing'):
         pack = packer.ImagePack(img.image for _, img in textures.iter_all())
-    utils.show_surface(pack.image)
+    if save_to:
+        pg.image.save(pack.image, save_to)
+    else:
+        utils.show_surface(pack.image)
 
 @testcase
 def pack_all():
@@ -228,22 +231,30 @@ def pack_all():
     import packer
     utils.pg_init()
     allNames = [
-        # 'smap', 'wmap', 'mmap'
+        'smap', 'wmap', 'mmap'
     ] + ['fight{:03d}'.format(i) for i in range(110)]
     rates = []
     for name in allNames:
-        with utils.timeit_context('Load and pack'):
+        with utils.timeit_context('Load and pack ' + name):
             try:
-                textures = texture.TextureGroup(name)
+                textures = texture.TextureGroup.get_group(name)
                 pack = packer.ImagePack(img.image for _, img in textures.iter_all())
                 rates.append(pack.rate)
             except FileNotFoundError:
+                pack = None
                 pass
-        # utils.show_surface(pack.image)
+        # if pack:
+        #     utils.show_surface(pack.image)
     pg.quit()
     import matplotlib.pyplot as plt
     plt.hist(rates)
     plt.show()
+
+@testcase
+def load_image(name='smap.png'):
+    utils.pg_init()
+    with utils.timeit_context('Load image: ' + name):
+        pg.image.load(name)
 
 @testcase
 def exit():

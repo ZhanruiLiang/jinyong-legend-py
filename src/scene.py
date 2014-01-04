@@ -3,11 +3,12 @@ from collections import namedtuple
 
 import pylru
 
-from texture import PackedTextureGroup as TextureGroup
-# from texture import TextureGroup
 import config
 import utils
 from scrollmap import ScrollMap
+from texturenew import TextureGroup
+# from texture import PackedTextureGroup as TextureGroup
+# from texture import TextureGroup
 
 GRID_FIELD_NUM = 6
 EVENT_FIELD_NUM = 11
@@ -38,11 +39,6 @@ Event = namedtuple('Event', (
     'd10',
 ))
 
-@utils.singleton
-class SceneTextures(TextureGroup):
-    def __init__(self):
-        super().__init__('smap')
-
 # Typecode 'h' means signed short int.
 TYPE_CODE = 'h'
 
@@ -57,7 +53,7 @@ class Scene(ScrollMap):
 
     @utils.profile
     def __init__(self, id, meta_data, sbytes, ebytes):
-        super().__init__(self.width, self.height, SceneTextures.get_instance())
+        super().__init__(self.width, self.height, TextureGroup.get_group('smap'))
         self.id = id
         sbuf = array(TYPE_CODE, sbytes)
         ebuf = array(TYPE_CODE, ebytes)

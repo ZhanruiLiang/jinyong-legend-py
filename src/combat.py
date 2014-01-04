@@ -3,7 +3,8 @@ from collections import namedtuple
 
 import config
 from scrollmap import ScrollMap
-from texture import TextureGroup
+# from texture import PackedTextureGroup as TextureGroup
+from texturenew import TextureGroup
 import pyxlru
 import utils
 
@@ -13,16 +14,12 @@ Grid = namedtuple('Grid', (
 ))
 GRID_FIELD_NUM = 2
 
-@utils.singleton
-class CombatMapTextures(TextureGroup):
-    def __init__(self):
-        super().__init__('wmap')
 
 class CombatMap(ScrollMap):
     def __init__(self, data):
         super().__init__(
             config.combatMapXMax, config.combatMapYMax, 
-            CombatMapTextures.get_instance()
+            TextureGroup.get_group('wmap'),
         )
         grids = utils.level_extract(data, GRID_FIELD_NUM)
         self.grids = {
@@ -50,7 +47,7 @@ class CombatMap(ScrollMap):
 @utils.singleton
 class CombatMapGroup:
     def __init__(self):
-        CombatMapGroup.textures = TextureGroup('wmap')
+        CombatMapGroup.textures = TextureGroup.get_group('wmap')
         self.idxs = array.array('L',
             open(config.resource('data', 'warfld.idx'), 'rb').read())
         self.idxs.append(0)

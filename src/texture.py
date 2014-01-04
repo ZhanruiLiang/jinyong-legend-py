@@ -52,6 +52,8 @@ class Texture:
 
 
 class TextureGroup:
+    _groups = {}
+
     def __init__(self, name):
         # print('load texture:', name)
         self.name = name
@@ -64,6 +66,12 @@ class TextureGroup:
 
         if config.textureGroupPreloadAll:
             self.load_all()
+
+    @classmethod
+    def get_group(cls, name):
+        if name not in cls._groups:
+            cls._groups[name] = cls(name)
+        return cls._groups[name]
 
     def load_all(self):
         for id, texture in self.iter_all():
@@ -130,6 +138,7 @@ class PackedTextureGroup(TextureGroup):
         for t, image in zip(textures, pack.images):
             t.image = image
         assert all(x() is None for x in originImages)
+        self.pack = pack
 
 class Animation:
     def __init__(self, texture_group, ids):

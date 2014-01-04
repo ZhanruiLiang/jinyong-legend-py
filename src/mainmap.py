@@ -5,8 +5,8 @@ import array
 import config
 import utils
 from scrollmap import ScrollMap
-from texture import PackedTextureGroup as TextureGroup
-# from texture import TextureGroup
+# from texture import PackedTextureGroup as TextureGroup
+from texturenew import TextureGroup
 
 # Typecode 'h' means signed short int.
 TYPE_CODE = 'h'
@@ -18,7 +18,8 @@ Grid = namedtuple('Grid', (
 @utils.singleton
 class MainMap(ScrollMap):
     def __init__(self):
-        super().__init__(config.mainMapXMax, config.mainMapYMax, TextureGroup('mmap'))
+        super().__init__(config.mainMapXMax, config.mainMapYMax, 
+            TextureGroup.get_group('mmap'))
         grids = [Grid(*x) for x in zip(*(self.load_002(f) 
             for f in ('earth', 'surface', 'building', 'buildx', 'buildy')))]
         self.grids = grids
