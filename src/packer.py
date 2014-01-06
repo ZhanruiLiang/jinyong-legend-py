@@ -1,6 +1,8 @@
 import utils
 import config
 import heapq
+import pygame as pg
+import ctypes
 
 class ImagePack:
     """
@@ -14,7 +16,6 @@ Attributes:
 
     def __init__(self, images, width=None):
         self.width = width
-        self.glTextureId = 0
         self.images = list(images)
         self._packed = False
         self.pack()
@@ -46,6 +47,7 @@ Attributes:
         else:
             wmax = self.MAX_WIDTH
 
+        @utils.profile
         def fill(gw):
             if gw < maxSingleW: 
                 return
@@ -92,7 +94,6 @@ Attributes:
         utils.debug('rate: {}, transpose: {}'.format(maxRate, transpose))
         return swap(bestSize), list(map(swap, bestPos)), maxRate
 
-    @utils.profile
     def pack(self, transpose=False):
         """
         Calculate self.size, self.poses, self.rate
@@ -123,7 +124,6 @@ Attributes:
             )
         )
         self.images = images
-        self.textureId = pack_gl_texture(self.images, self.size, self.poses)
 
     def make_image(self, waste_color=0xff0000):
         surface = utils.new_surface(self.size)
@@ -134,7 +134,3 @@ Attributes:
             surface.blit(image, pos)
             image.set_colorkey(colorKey)
         return surface
-
-
-def pack_gl_texture(images, size, poses):
-    pass

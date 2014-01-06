@@ -449,7 +449,7 @@ class RateAdjuster(SimpleRateAdjuster):
 
 
 class ScrollLooper:
-    def __init__(self, size, grid_size):
+    def __init__(self, size, grid_size, bottom_pad=18, side_pad=4):
         self.size = size
         self.gridSize = grid_size
 
@@ -457,8 +457,8 @@ class ScrollLooper:
         gx, gy = grid_size
         rx = int(w / (2 * gx) + .99999) + 2
         ry = int(h / (2 * gy) + .99999) + 2
-        kL, kR = self.kRange = (-ry, ry + 18 + 1)
-        tL, tR = self.tRange = (-rx, rx + 4 + 1)
+        kL, kR = self.kRange = (-ry, ry + bottom_pad+ 1)
+        tL, tR = self.tRange = (-rx, rx + side_pad + 1)
 
         self._list = []
         D = config.Directions

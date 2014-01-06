@@ -48,10 +48,9 @@ class TextureGroup:
         return len(self.textures)
 
     def get(self, id, fail=0):
-        id //= 2
         if id not in self.textures:
             utils.debug('{}: id: {} not in range {}'.format(
-                self.name, id, (0, len(textures) - 1)))
+                self.name, id, (0, len(self.textures) - 1)))
             return None
         return self.textures[id]
 

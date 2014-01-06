@@ -32,7 +32,7 @@ class MainMap(ScrollMap):
     def get_floor_texture(self, pos):
         grid = self.get_grid(pos)
         if grid and grid.earth > 0:
-            return self.textures.get(grid.earth)
+            return self.textures.get(grid.earth // 2)
         return None
 
     # Override this for ScrollMap
@@ -41,7 +41,7 @@ class MainMap(ScrollMap):
         grid = self.get_grid(pos)
         if grid is None:
             return None
-        return self.merge_textures([(grid.surface, 0), (grid.building, 0)])
+        return self.merge_textures([(grid.surface // 2, 0), (grid.building // 2, 0)])
 
     def get_grid(self, pos):
         x, y = pos

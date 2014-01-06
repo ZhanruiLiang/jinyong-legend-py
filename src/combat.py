@@ -31,7 +31,7 @@ class CombatMap(ScrollMap):
     def load_grid_texture(self, pos):
         try:
             grid = self.grids[pos]
-            toMerge = [(grid.floor, 0), (grid.building, 0)]
+            toMerge = [(grid.floor // 2, 0), (grid.building // 2, 0)]
             return self.merge_textures(toMerge)
         except KeyError:
             return None
@@ -41,7 +41,7 @@ class CombatMap(ScrollMap):
             grid = self.grids[pos]
         except KeyError:
             return None
-        return self.textures.get(grid.floor)
+        return self.textures.get(grid.floor // 2)
 
 
 @utils.singleton

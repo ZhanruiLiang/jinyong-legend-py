@@ -94,17 +94,17 @@ class Scene(ScrollMap):
             eventTexture = self.events[grid.event].texture \
                 if grid.event >= 0 else -1
             return self.merge_textures([
-                (grid.floor, grid.height),
-                (grid.building, grid.height),
-                (grid.float, grid.floatHeight),
-                (eventTexture, grid.height),
+                (grid.floor // 2, grid.height),
+                (grid.building // 2, grid.height),
+                (grid.float // 2, grid.floatHeight),
+                (eventTexture // 2, grid.height),
             ])
 
     # Override this for ScrollMap
     def get_floor_texture(self, pos):
         grid = self.get_grid(pos)
         if grid and grid.floor > 0:
-            return self.textures.get(grid.floor)
+            return self.textures.get(grid.floor // 2)
         return None
 
     def get_grid(self, pos, default=None):

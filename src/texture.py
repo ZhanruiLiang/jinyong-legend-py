@@ -62,7 +62,7 @@ class TextureGroup:
         self.idxs.append(0)
         self.empty = object()
         self.textures = [self.empty] * (len(self.idxs) - 1)
-        utils.debug(name, 'textures:', len(self.textures))
+        utils.debug(name, 'textures(including None):', len(self.textures))
 
         if config.textureGroupPreloadAll:
             self.load_all()
@@ -82,7 +82,6 @@ class TextureGroup:
         return len(self.textures)
 
     def get(self, id, fail=0):
-        id //= 2
         textures = self.textures
         if not 0 <= id < len(textures):
             utils.debug('{}: id: {} not in range {}'.format(
@@ -122,7 +121,7 @@ class TextureGroup:
 
     def iter_all(self):
         for id in range(len(self.textures)):
-            texture = self.get(id * 2)
+            texture = self.get(id)
             if texture is not None:
                 yield id, texture
 

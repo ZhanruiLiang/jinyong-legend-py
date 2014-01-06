@@ -137,13 +137,15 @@ def pg_loop(func):
     """
     func: (screen, events) -> quit?
     """
-    if pg.display.get_surface() is None:
-        screen = init_pg()
+    if not pg.display.get_init():
+        screen = pg_init()
     else:
         screen = pg.display.get_surface()
     quit = False
     tm = pg.time.Clock()
+    round = 0
     while not quit:
+        round += 1
         events = pg.event.get()
         for event in events:
             if event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
@@ -153,6 +155,8 @@ def pg_loop(func):
                     pg.display.toggle_fullscreen()
         quit = func(screen, events)
         tm.tick(config.FPS)
+        if config.showFPS and round % 30 == 0:
+            print('\rFPS: {:.1f}'.format(tm.get_fps()), end='')
 
 def timeit(func):
     @functools.wraps(func)
