@@ -53,7 +53,7 @@ class Scene(ScrollMap):
 
     @utils.profile
     def __init__(self, id, meta_data, sbytes, ebytes):
-        super().__init__(self.width, self.height, TextureGroup.get_group('smap'))
+        super().__init__(self.width, self.height, 6, TextureGroup.get_group('smap'))
         self.id = id
         sbuf = array(TYPE_CODE, sbytes)
         ebuf = array(TYPE_CODE, ebytes)

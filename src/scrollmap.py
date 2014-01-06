@@ -29,9 +29,10 @@ class ScrollMap(sprite.Sprite):
     PAD_X = GX * 8
     PAD_Y = GY * 10
 
-    def __init__(self, xmax, ymax, textures):
+    def __init__(self, xmax, ymax, n_levels, textures):
         super().__init__()
         self.textures = textures
+        self.nLevels = n_levels
         size = (
             config.screenWidth + self.PAD_X * 2, 
             config.screenHeight + self.PAD_Y * 2 + config.bottomPadding,
@@ -457,7 +458,7 @@ class ScrollLooper:
         gx, gy = grid_size
         rx = int(w / (2 * gx) + .99999) + 2
         ry = int(h / (2 * gy) + .99999) + 2
-        kL, kR = self.kRange = (-ry, ry + bottom_pad+ 1)
+        kL, kR = self.kRange = (-ry, ry + bottom_pad + 1)
         tL, tR = self.tRange = (-rx, rx + side_pad + 1)
 
         self._list = []

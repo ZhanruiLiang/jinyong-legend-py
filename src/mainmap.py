@@ -18,7 +18,7 @@ Grid = namedtuple('Grid', (
 @utils.singleton
 class MainMap(ScrollMap):
     def __init__(self):
-        super().__init__(config.mainMapXMax, config.mainMapYMax, 
+        super().__init__(config.mainMapXMax, config.mainMapYMax, 5,
             TextureGroup.get_group('mmap'))
         grids = [Grid(*x) for x in zip(*(self.load_002(f) 
             for f in ('earth', 'surface', 'building', 'buildx', 'buildy')))]

@@ -18,7 +18,7 @@ GRID_FIELD_NUM = 2
 class CombatMap(ScrollMap):
     def __init__(self, data):
         super().__init__(
-            config.combatMapXMax, config.combatMapYMax, 
+            config.combatMapXMax, config.combatMapYMax, 2,
             TextureGroup.get_group('wmap'),
         )
         grids = utils.level_extract(data, GRID_FIELD_NUM)

@@ -1,15 +1,22 @@
 from OpenGL.GL import *
-import OpenGL.GL.shaders as Shaders
 import pygame as pg
 import numpy as np
+import itertools
 
 import config
 import utils
+import glrenderhelper
+
+ArrayBufDataType = np.float32
+ArrayBufTypeEnum = GL_FLOAT
 
 def gl_display_init(size):
     pg.display.init()
-    pg.display.set_mode(size, pg.OPENGL | pg.DOUBLEBUF, 24)
+    # pg.display.set_mode(size, pg.OPENGL | pg.DOUBLEBUF, 24)
+    pg.display.set_mode(size, pg.OPENGL, 24)
     utils.debug('OpenGL context:', glGetString(GL_VERSION))
+
+    pg.display.gl_set_attribute(pg.GL_SWAP_CONTROL, 0)
 
     # OpenGL context created, initialize GL stuff
     glClearColor(0, .1, 0, 1)
@@ -97,36 +104,36 @@ def test():
     import texture
     import scrollmap
     import mainmap
-    W, H = 800, 600
+    # W, H = 800, 600
     # W, H = 1366, 768
+    W, H = 1266, 768
     gl_display_init((W, H))
 
     textures = texture.PackedTextureGroup.get_group('mmap')
     pack = textures.pack
     textureId = convert_texture(pack.image)
-    ids = []
-    ts = []
+    nSolidTextures = sum(1 for _ in textures.iter_all())
+    # TODO: switch to integers
+    uvData = np.zeros((nSolidTextures, 4, 2), dtype=np.int32)
+    # Since uvData is a compat array without empty slots, we need to remapTable to 
+    # map mp.grids[id] to uvData[i].
+    remapTable = np.zeros(len(textures), dtype=np.int32)
+    remapTable[:] = -1
+    # offsets[remapTable[i]] = grids[i].xoff, grids[i].yoff
+    offsets = np.zeros((nSolidTextures, 2), dtype=np.int32)
+    i = 0
     for id, t in textures.iter_all():
-        ids.append(id)
-        ts.append(t)
-    # uvData = (GLfloat * 2 * (len(ids) * 4))()
-    uvData = np.zeros((len(ids) * 4, 2), dtype=np.float32)
-    remaping = [None] * len(textures)
-    for i, t in enumerate(ts):
-        remaping[ids[i]] = i
+        remapTable[id] = i
         w1, h1 = t.image.get_size()
         x1, y1 = pack.poses[i]
-        uvData[i * 4: i * 4 + 4] = (
+        uvData[i] = (
             (x1, y1),
             (x1 + w1, y1),
             (x1 + w1, y1 + h1),
             (x1, y1 + h1),
         )
-        # uvData[i * 4 + 0] = (x1, y1)
-        # uvData[i * 4 + 1] = (x1 + w1, y1)
-        # uvData[i * 4 + 2] = (x1 + w1, y1 + h1)
-        # uvData[i * 4 + 3] = (x1, y1 + h1)
-    del ids, ts
+        offsets[i] = t.xoff, t.yoff
+        i += 1
 
     vao = glGenVertexArrays(1)
     glBindVertexArray(vao)
@@ -139,7 +146,6 @@ def test():
 
     glUniform2i(getUniformLoc(program, 'screenSize'), W, H)
     glUniform2i(getUniformLoc(program, 'bigImgSize'), *pack.image.get_size())
-    # glUniform2iv(getUniformLoc(program, 'uvData'), uvData)
     glUniform1i(getUniformLoc(program, 'textureSampler'), 0)
 
     positionLoc = getAttributeLoc(program, 'vertexPosition')
@@ -149,23 +155,16 @@ def test():
 
     looper = scrollmap.ScrollLooper(
         (W, H), (config.textureXScale, config.textureYScale),
-        2, 2,
+        10,  # bottom padding
+        4,  # side padding
     )
-    rectPoses = [p for p in looper.iter()]
-    nGrids = len(rectPoses)
-
-    positions = (GLfloat * 2 * (nGrids * 4))()
-    GX, GY = config.textureXScale, config.textureYScale
-    for i, (dx, dy) in enumerate(rectPoses):
-        sx, sy = (dx - dy) * GX, (dx + dy) * GY
-        for j, (dx1, dy1) in enumerate(((-GX, -GY), (GX, -GY), (GX, GY), (-GX, GY))):
-            positions[i * 4 + j] = sx + dx1, sy + dy1
-
-    glBindBuffer(GL_ARRAY_BUFFER, positionBuf)
-    glBufferData(GL_ARRAY_BUFFER, positions, GL_STATIC_DRAW)
-
-    # uvs = (GLfloat * 2 * (nGrids * 4))()
-    uvs = np.zeros((nGrids * 4, 2), 'f')
+    glrenderhelper.set_looper(looper)
+    # nGrids: The number grids that will be draw on screen on each frame.
+    nGrids = sum(1 for _ in looper.iter())
+    positions = np.zeros((nGrids * 4, 2), dtype=ArrayBufDataType)
+    # positions = (GLint * 2 * (nGrids * 4))()
+    uvs = np.zeros((nGrids * 4, 2), dtype=ArrayBufDataType)
+    # uvs = (GLint * 2 * (nGrids * 4))()
 
     mp = mainmap.MainMap.get_instance()
 
@@ -177,6 +176,10 @@ def test():
     glEnableVertexAttribArray(uvLoc)
 
     currentPos = 200, 200
+
+    mapSize = mp.xmax, mp.ymax
+    glrenderhelper.load_grid_table(mp)
+    glrenderhelper.load_uvdata(uvData, offsets, remapTable)
 
     @utils.pg_loop
     @utils.profile
@@ -198,26 +201,20 @@ def test():
 
         glClear(GL_COLOR_BUFFER_BIT)
 
-        glBindBuffer(GL_ARRAY_BUFFER, positionBuf)
-        glVertexAttribPointer(positionLoc, 2, GL_FLOAT, GL_FALSE, 0, None)
+        for level in range(3):
+            # with utils.timeit_context('make buffer'):
+            drawN = glrenderhelper.make_buffer(
+                positions, uvs, currentPos, mapSize, level)
 
-        for i, (dx, dy) in enumerate(looper.iter()):
-            grid = mp.get_grid((currentX + dx, currentY + dy))
-            if grid is None:
-                id = 0
-            else:
-                id = remaping[grid.earth // 2]
-                if id is None:
-                    id = 0
-            # uvs[i * 4: i * 4 + 4] = uvData[id * 4: id * 4 + 4]
-            for j in range(4):
-                uvs[i * 4 + j] = uvData[id * 4 + j]
+            glBindBuffer(GL_ARRAY_BUFFER, positionBuf)
+            glBufferData(GL_ARRAY_BUFFER, positions, GL_DYNAMIC_DRAW)
+            glVertexAttribPointer(positionLoc, 2, ArrayBufTypeEnum, GL_FALSE, 0, None)
 
-        glBindBuffer(GL_ARRAY_BUFFER, uvBuf)
-        glBufferData(GL_ARRAY_BUFFER, uvs, GL_DYNAMIC_DRAW)
-        glVertexAttribPointer(uvLoc, 2, GL_FLOAT, GL_FALSE, 0, None)
+            glBindBuffer(GL_ARRAY_BUFFER, uvBuf)
+            glBufferData(GL_ARRAY_BUFFER, uvs, GL_DYNAMIC_DRAW)
+            glVertexAttribPointer(uvLoc, 2, ArrayBufTypeEnum, GL_FALSE, 0, None)
 
-        glDrawArrays(GL_QUADS, 0, nGrids * 4)
+            glDrawArrays(GL_QUADS, 0, drawN * 4)
 
         pg.display.flip()
 
