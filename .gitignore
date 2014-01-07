@@ -44,3 +44,4 @@ __pyxbld
 /src/render.html
 /src/data.dat
 /src/_surface_test.py
+/src/*.html

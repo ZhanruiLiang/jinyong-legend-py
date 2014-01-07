@@ -1,1 +1,11 @@
+Traceback (most recent call last):
+  File "testrender.py", line 28, in <module>
+    textures = TextureGroup.get_group('mmap')
+  File "/home/ray/python/jinyong-legend/src/texturenew.py", line 41, in get_group
+    cls._groups[name] = TextureGroup(cls._data[name])
+  File "/home/ray/python/jinyong-legend/src/texturenew.py", line 32, in __init__
+    self.textureId = gllib.convert_texture(rawImageBytes)
+  File "/home/ray/python/jinyong-legend/src/gllib.py", line 131, in convert_texture
+    size[0], size[1],
+TypeError: 'NoneType' object is not subscriptable
 
