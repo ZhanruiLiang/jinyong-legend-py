@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-from testbase import testcase, disable, AutoController, run_all, run_case, main
+from testbase import testcase, disable, AutoController, main
 import config
 import utils
 import gllib
@@ -8,8 +8,7 @@ import pygame as pg
 @testcase
 def compile():
     gllib.display_init()
-
-    program = gllib.RenderProgam()
+    gllib.RenderProgam()
 
 @testcase
 def mainmap():

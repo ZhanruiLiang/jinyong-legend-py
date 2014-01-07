@@ -28,8 +28,16 @@ class TextureGroup:
         for id, v in uvs.items():
             self.uvTable[id] = v
 
-        rawImageBytes = gzip.decompress(meta['image'])
-        self.textureId = gllib.convert_texture(rawImageBytes, meta['size'])
+        self._compressedBytes = meta['image']
+        self._textureId = None
+
+    @property
+    def textureId(self):
+        if self._textureId is None:
+            self._textureId = gllib.convert_texture(
+                gzip.decompress(self._compressedBytes), self.size)
+            del self._compressedBytes
+        return self._textureId
 
     @classmethod
     def get_group(cls, name):

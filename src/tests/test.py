@@ -6,7 +6,7 @@ import utils
 import config
 sys.path.append('..')
 
-from testbase import testcase, disable, AutoController, run_all, run_case, main
+from testbase import testcase, disable, AutoController, main
 
 pg.display.init()
 
@@ -142,7 +142,6 @@ def mini_map():
     g.init()
     mmap = mainmap.MainMap.get_instance()
     mmap.make_minimap('/tmp/a.png')
-    mmap.quit()
     g.quit()
 
 @testcase
@@ -157,7 +156,7 @@ def packer(map_name='wmap', save_to=None):
         pg.image.save(pack.image, save_to)
     else:
         utils.show_surface(pack.image)
-
+@disable
 @testcase
 def pack_all():
     import texture

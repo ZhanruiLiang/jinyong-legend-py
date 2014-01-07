@@ -198,9 +198,12 @@ class RenderProgam(Program):
         assert count % 4 == 0
         gl.glDrawArrays(gl.GL_QUADS, 0, count)
 
+def clear():
+    gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+
 def gl_loop(func):
     @utils.pg_loop
     def newfunc(screen, events):
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+        clear()
         func(events)
     return newfunc

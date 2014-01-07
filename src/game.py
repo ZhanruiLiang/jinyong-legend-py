@@ -1,5 +1,7 @@
 import config
 import pygame as pg
+
+import gllib
 import sound
 import player
 import utils
@@ -8,6 +10,7 @@ from record import Record, RecordNotExistError
 from menu import BaseMenu, menuitem
 from mainmap import MainMap
 from combatmap import CombatMapGroup
+from render import Render
 
 
 class GameState:
@@ -196,8 +199,6 @@ Attributes:
         self.add_key_callback(debugger)
 
     def clean_up(self):
-        if self.currentMap:
-            self.currentMap.quit()
         pg.quit()
 
     def play(self):
@@ -219,7 +220,7 @@ Attributes:
                 elif event.type == pg.QUIT:
                     self.quit()
             self.logic()
-            self.render()
+            self.draw()
             tm.tick(config.FPS)
             if config.showFPS and self.round % 30 == 0:
                 print('\rFPS: {:.1f}'.format(tm.get_fps()), end='')
@@ -238,7 +239,8 @@ Attributes:
     def on_key_down(self, key, mod):
         if self.state is GameState.MENU:
             self.currentMenu.on_key_down(key)
-        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
+        elif self.state in (
+                GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
             if key == pg.K_ESCAPE:
                 self.quit()
             if key in config.directionKeyMap:
@@ -253,8 +255,7 @@ Attributes:
         """
         self._keyCallbacks.append(callback)
 
-    def render(self):
-        screen = self.screen
+    def draw(self):
         state = self.state
         if state is GameState.MENU:
             pg.display.update([
@@ -262,25 +263,15 @@ Attributes:
                 self.draw_sprite(self.currentMenu),
             ])
         elif state in (GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
-            screen.fill((0, 0, 0))
-            map = self.currentMap
-            screen.blit(map.image, map.rect)
-            if config.debugMargin:
-                rect = pg.Rect((config.debugMargin, config.debugMargin),
-                    (config.screenWidth - 2 * config.debugMargin,
-                     config.screenHeight - 2 * config.debugMargin),
-                )
-                pg.draw.rect(screen, (0xff, 0, 0), rect, 2)
-
-            pg.display.update()
-        else:
-            # TODO
-            pg.display.update()
+            gllib.clear()
+            self.currentMap.draw()
+            pg.display.flip()
 
     def logic(self):
         if self.state is GameState.MENU:
             self.currentMenu.update()
-        elif self.state in (GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
+        elif self.state in (
+                GameState.SCENE_MAP, GameState.MAIN_MAP, GameState.COMBAT_MAP):
             self.currentMap.update()
 
     def draw_sprite(self, sp):
@@ -307,6 +298,10 @@ Attributes:
         utils.debug('Record "{}" loaded'.format(name))
         self.configure(record)
 
+        gllib.display_init()
+        self.render = Render()
+        del self.screen
+
     def save_record(self, name):
         # record = self.make_record()
         # record.save(name)
@@ -317,8 +312,9 @@ Attributes:
 
     def enter_main_map(self):
         self.state = GameState.MAIN_MAP
-        self.currentMap = MainMap.get_instance()
-        self.currentMap.move_to((267, 323))
+        mmap = self.currentMap = MainMap.get_instance()
+        mmap.bind(self.render)
+        mmap.move_to((267, 323))
         utils.debug("enter main map")
 
     def enter_scene(self, id):
@@ -329,6 +325,7 @@ Attributes:
             scene = self.scenes.get_by_name(id)
         else:
             raise KeyError('unknown id: {}'.format(id))
+        scene.bind(self.render)
         scene.move_to(scene.entrance)
         utils.debug("enter scene:", scene.name)
 
@@ -336,9 +333,10 @@ Attributes:
 
     def enter_combat_map(self, id):
         self.state = GameState.COMBAT_MAP
-        self.currentMap = CombatMapGroup.get_instance().get(id)
+        cmap = self.currentMap = CombatMapGroup.get_instance().get(id)
+        cmap.bind(self.render)
+        cmap.move_to((31, 31))
         utils.debug('enter combat map:', id)
-        self.currentMap.move_to((31, 31))
 
 def debugger(game, key, mod):
     if key == pg.K_f:
