@@ -3,13 +3,15 @@ from OpenGL.GL import *
 from OpenGL.arrays import vbo
 import numpy as np
 import gllib
+from contextlib import contextmanager
 
 import config
 import utils
 
-cdef enum Mode:
-    directDraw = 0
-    callbackDraw = 1
+cdef int * Sw = [0, 1, 1, 0]
+cdef int * Sh = [0, 0, 1, 1]
+cdef int GX = config.textureXScale 
+cdef int GY = config.textureYScale
 
 def new_array(shape, type, data=None):
     if data is None:
@@ -118,11 +120,6 @@ class Render:
 
         self.program.use()
 
-        cdef int * Sw = [0, 1, 1, 0]
-        cdef int * Sh = [0, 0, 1, 1]
-        cdef int GX = config.textureXScale 
-        cdef int GY = config.textureYScale
-
         cdef int x, y, height, x1, y1, xmax, ymax, dx, dy, x0, y0, u0, v0, \
                 u, v, cx, cy, uw, uh, level, maxUVID, heightI 
         cdef int i, j, k, id, nVertices
@@ -150,29 +147,65 @@ class Render:
             for k in range(nLhs):
                 level = lhsview[k, 0]
                 id = gtview[level, y1, x1]
-                if id > 0:
-                    id //= 2
-                if 0 < id < maxUVID:
-                    heightI = lhsview[k, 1]
-                    if heightI != level:
-                        height = gtview[heightI, y1, x1]
-                    else:
-                        height = 0
-                    #u0, v0, uw, uh, cx, cy = uvTable[id, 0:6]
-                    u0 = uvTable[id, 0]
-                    v0 = uvTable[id, 1]
-                    uw = uvTable[id, 2]
-                    uh = uvTable[id, 3]
-                    x0 = (dx - dy) * GX - u0 - uvTable[id, 4]
-                    y0 = (dx + dy) * GY - v0 - uvTable[id, 5] + height
-                    for j in range(4):
-                        u = u0 + Sw[j] * uw
-                        v = v0 + Sh[j] * uh
-                        uvview[nVertices + j, 0] = u
-                        uvview[nVertices + j, 1] = v
-                        pview[nVertices + j, 0] = x0 + u
-                        pview[nVertices + j, 1] = y0 + v
-                    nVertices += 4
+                if not (0 < id < maxUVID * 2):
+                    continue
+                id //= 2
+                heightI = lhsview[k, 1]
+                if heightI != level:
+                    height = gtview[heightI, y1, x1]
+                else:
+                    height = 0
+                #u0, v0, uw, uh, cx, cy = uvTable[id, 0:6]
+                u0 = uvTable[id, 0]
+                v0 = uvTable[id, 1]
+                uw = uvTable[id, 2]
+                uh = uvTable[id, 3]
+                x0 = (dx - dy) * GX - u0 - uvTable[id, 4]
+                y0 = (dx + dy) * GY - v0 - uvTable[id, 5] + height
+                for j in range(4):
+                    u = u0 + Sw[j] * uw
+                    v = v0 + Sh[j] * uh
+                    uvview[nVertices + j, 0] = u
+                    uvview[nVertices + j, 1] = v
+                    pview[nVertices + j, 0] = x0 + u
+                    pview[nVertices + j, 1] = y0 + v
+                nVertices += 4
+        self.flush(nVertices)
+
+    def flush(self, nVertices):
         self.program.set_positions(self.positions)
         self.program.set_uvs(self.uvs)
         self.program.draw(nVertices)
+
+    @contextmanager
+    def single_draw_mode(self):
+        self._toDraw = 0
+        yield
+
+        cdef int x, y, x1, y1, dx, dy, u0, v0, x0, y0, i, j, u, v, uw, uh, id, height
+        cdef int[:, :] uvTable = self.uvTable
+        cdef float[:, :] pview = self.positions
+        cdef float[:, :] uvview = self.uvs
+        x, y = self.currentPos
+        i = 0
+        for (id, x1, y1, height) in self._toDraw:
+            dx = x1 - x
+            dy = y1 - y
+            #u0, v0, uw, uh, cx, cy = uvTable[id, 0:6]
+            u0 = uvTable[id, 0]; v0 = uvTable[id, 1]
+            uw = uvTable[id, 2]; uh = uvTable[id, 3]
+            x0 = (dx - dy) * GX - u0 - uvTable[id, 4]
+            y0 = (dx + dy) * GY - v0 - uvTable[id, 5] + height
+            for j in range(4):
+                u = u0 + Sw[j] * uw
+                v = v0 + Sh[j] * uh
+                uvview[i + j, 0] = u
+                uvview[i + j, 1] = v
+                pview[i + j, 0] = x0 + u
+                pview[i + j, 1] = y0 + v
+            i += 4
+        self.flush(i)
+        del self._toDraw
+
+    def blit_texture(self, id, pos, height):
+        self._toDraw.append((id, pos[0], pos[1], height))

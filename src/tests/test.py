@@ -3,7 +3,7 @@ import sys
 import pygame as pg
 
 import utils
-import config
+# import config
 sys.path.append('..')
 
 from testbase import testcase, disable, AutoController, main
@@ -45,8 +45,8 @@ def scene():
     g = game.Game()
     g.init()
     g.load_record('1')
-    g.enter_scene('梅莊')
-    # g.enter_scene('絕情谷底')
+    # g.enter_scene('梅莊')
+    g.enter_scene('絕情谷底')
     get_walker().start()
     g.loop()
 

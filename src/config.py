@@ -8,23 +8,23 @@ os.environ['SDL_VIDEO_CENTERED'] = '1'
 resourceRoot = 'resource'
 
 class Directions:
-    all = (right, down, left, up) = ((1, 0), (0, 1), (-1, 0), (0, -1))
+    all = (up, right, left, down) = ((0, -1), (1, 0), (-1, 0), (0, 1))
 
 def resource(*subpaths):
     return os.path.join(resourceRoot, *subpaths)
 
 debug = 1
 
-FPS = 60
+FPS = 30
 showFPS = 1
 smoothTicks = 1
 drawFloor = 1
 
 # screenWidth, screenHeight = 160, 120
 # screenWidth, screenHeight = 320, 240
-# screenWidth, screenHeight = 640, 480
+screenWidth, screenHeight = 640, 480
 # screenWidth, screenHeight = 800, 600
-screenWidth, screenHeight = 1024, 738
+# screenWidth, screenHeight = 1024, 738
 # screenWidth, screenHeight = 1366, 768
 
 screenSize = screenWidth, screenHeight
