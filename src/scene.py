@@ -1,42 +1,30 @@
 from array import array
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
+import numpy as np
 
 import pylru
 
 import config
 import utils
 from scrollmap import ScrollMap
-# from texturenew import TextureGroup
-# from texture import PackedTextureGroup as TextureGroup
-from texture import TextureGroup
+from texturenew import TextureGroup
 
 GRID_FIELD_NUM = 6
 EVENT_FIELD_NUM = 11
-SCENE_BLOCK_SIZE = (
-    config.sceneMapXMax * config.sceneMapYMax * GRID_FIELD_NUM * 2)
+SCENE_BLOCK_SIZE = config.sceneMapXMax * config.sceneMapYMax * GRID_FIELD_NUM * 2
 EVENT_BLOCK_SIZE = config.eventNumPerScene * EVENT_FIELD_NUM * 2
 
-Grid = namedtuple('Grid', (
-    'floor',
+GridFields = OrderedDict(zip((
+    'floor', 
     'building',
     'float',
     'event',
     'height',
     'floatHeight',
-))
+), range(99)))
 
 Event = namedtuple('Event', (
-    'd0',
-    'd1',
-    'd2',
-    'd3',
-    'd4',
-    'd5',
-    'd6',
-    'texture',
-    'd8',
-    'd9',
-    'd10',
+    'd0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'texture', 'd8', 'd9', 'd10',
 ))
 
 # Typecode 'h' means signed short int.
@@ -47,27 +35,41 @@ class Scene(ScrollMap):
     grids
     events
     entrance
+    name
     """
-    width = config.sceneMapXMax
-    height = config.sceneMapYMax
+    floorHeightI = GridFields['height']
+    batchData = [
+        (GridFields['building'], GridFields['height']),
+        (GridFields['float'], GridFields['floatHeight']),
+        (GridFields['event'], GridFields['height'])
+    ]
 
-    @utils.profile
     def __init__(self, id, meta_data, sbytes, ebytes):
-        super().__init__(self.width, self.height, 6, TextureGroup.get_group('smap'))
         self.id = id
-        sbuf = array(TYPE_CODE, sbytes)
-        ebuf = array(TYPE_CODE, ebytes)
-        del sbytes, ebytes
 
-        self.grids = [Grid(*x) for x in utils.level_extract(sbuf, GRID_FIELD_NUM)]
+        self.origGridTable = np.fromstring(sbytes, TYPE_CODE)\
+            .reshape((GRID_FIELD_NUM, config.sceneMapYMax, config.sceneMapXMax))
+
+        ebuf = array(TYPE_CODE, ebytes)
+        del ebytes
         self.events = [
             Event(*ebuf[i:i + EVENT_FIELD_NUM]) 
             for i in range(0, len(ebuf), EVENT_FIELD_NUM)
         ]
+        super().__init__(TextureGroup.get_group('smap'), self.make_grid_table())
+
         self.metaData = meta_data
 
-        # self.debug_dump(0)
-        # self.debug_dump(1)
+    def make_grid_table(self):
+        gridTable = self.origGridTable.copy()
+        eI = GridFields['event']
+        xmax, ymax = gridTable.shape[1:]
+        for y in range(ymax):
+            for x in range(xmax):
+                e = gridTable[eI, y, x]
+                if e >= 0:
+                    gridTable[eI, y, x] = self.events[e].texture
+        return gridTable
 
     @property
     def entrance(self):
@@ -78,40 +80,9 @@ class Scene(ScrollMap):
         return self.metaData['名称']
 
     def save(self):
-        sbytes = utils.level_repack(self.grids, TYPE_CODE, GRID_FIELD_NUM).tobytes()
+        sbytes = self.gridTable.tostring()
         ebytes = b''.join(array(TYPE_CODE, e).tobytes() for e in self.events)
         return sbytes, ebytes
-
-    def debug_dump(self, field):
-        def getter(grid):
-            return grid[field]
-        super().debug_dump(getter)
-
-    # Override this method to support ScrollMap operations.
-    def load_grid_texture(self, pos):
-        grid = self.get_grid(pos, None)
-        if grid:
-            eventTexture = self.events[grid.event].texture \
-                if grid.event >= 0 else -1
-            return self.merge_textures([
-                (grid.floor // 2, grid.height),
-                (grid.building // 2, grid.height),
-                (grid.float // 2, grid.floatHeight),
-                (eventTexture // 2, grid.height),
-            ])
-
-    # Override this for ScrollMap
-    def get_floor_texture(self, pos):
-        grid = self.get_grid(pos)
-        if grid and grid.floor > 0:
-            return self.textures.get(grid.floor // 2)
-        return None
-
-    def get_grid(self, pos, default=None):
-        x, y = pos
-        if not 0 <= x < self.width or not 0 <= y < self.height:
-            return default
-        return self.grids[y * self.width + x]
 
 
 class SceneGroup:

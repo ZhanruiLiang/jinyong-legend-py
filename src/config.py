@@ -22,9 +22,12 @@ drawFloor = 1
 
 # screenWidth, screenHeight = 160, 120
 # screenWidth, screenHeight = 320, 240
-screenWidth, screenHeight = 640, 480
+# screenWidth, screenHeight = 640, 480
 # screenWidth, screenHeight = 800, 600
+screenWidth, screenHeight = 1024, 738
 # screenWidth, screenHeight = 1366, 768
+
+screenSize = screenWidth, screenHeight
 
 depthBits = 32
 
@@ -55,6 +58,7 @@ colorOrange = (252, 148, 16, 255)
 colorGold = (236, 200, 40, 255)
 colorBlack = (0, 0, 0, 255)
 colorFontShadow = (50, 50, 50, 100)
+backgroundColor = (.1, .1, .1, 1)
 
 # fonts
 # defaultFont = 'bkai00mp.ttf'

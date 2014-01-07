@@ -1,3 +1,4 @@
+# Cython: profile=True
 from OpenGL.GL import *
 from OpenGL.arrays import vbo
 import numpy as np
@@ -6,15 +7,9 @@ import gllib
 import config
 import utils
 
-def add(a, b):
-    return (a[0] + b[0], a[1] + b[1])
-
-def minus(a, b):
-    return (a[0] - b[0], a[1] - b[1])
-
-ArrayBufTypeEnum = GL_FLOAT
-ArrayBufDataType = GLfloat
-IntType = GLint
+cdef enum Mode:
+    directDraw = 0
+    callbackDraw = 1
 
 def new_array(shape, type, data=None):
     if data is None:
@@ -22,145 +17,154 @@ def new_array(shape, type, data=None):
     else:
         return np.array(data, dtype=type)
 
-
-def init():
-    global program, positionLoc, uvLoc
-    gllib.display_init((config.screenWidth, config.screenHeight))
-
-    program = gllib.Program.compile([
-        ('map.v.glsl', GL_VERTEX_SHADER),
-        ('map.f.glsl', GL_FRAGMENT_SHADER),
-    ])
-    program.use()
-
-    positionLoc = program.get_attrib_loc('vertexPosition')
-    uvLoc = program.get_attrib_loc('vertexUV')
-
-    glEnableVertexAttribArray(positionLoc)
-    glEnableVertexAttribArray(uvLoc)
-
-
-class ScrollMap:
+class Render:
     # paddings(extra grids when render). Some objects on map is large
     # , so we need to render it's grid enter the screen.
     BOTTOM_PAD = 18
     SIDE_PAD = 4
+    MIN_ZOOM = .1
+    MAX_ZOOM = 20.
+    MAX_GRIDS = 6000
+    MAX_BATCH = 5
 
-    def __init__(self, xmax, ymax, n_levels, data):
-        self.xmax = xmax
-        self.ymax = ymax
-        self.nLevels = n_levels
-        self.uvTable = []
-        self.textureUnit = gllib.GLTextureUnit(0)
-
-        self.positions = np.zeros(1, ArrayBufDataType)
-        self.positionBuf = vbo.VBO(self.positions)
-        self.uvs = np.zeros(1, ArrayBufDataType)
-        self.uvBuf = vbo.VBO(self.uvs)
-        self.screenSize = None
-
-        self.gridTable = np.fromstring(data, 'h').reshape((ymax, xmax, n_levels))
-
+    def __init__(self):
         self.currentPos = (0, 0)
-        self.directionQueue = []
+        self.screenSize = None
+        self.program = gllib.RenderProgam()
+        self.program.use()
+        self.gridTable = None
+        self.uvTable = None
+        self._ready = False
+        self.zoomRate = 1.
+        self.program.zoom_to(self.zoomRate)
+        self.poses = np.zeros((self.MAX_GRIDS, 2), 'i')
 
-    def bind(self):
-        pass
+    def is_ready(self):
+        return self.gridTable is not None and self.uvTable is not None
 
-    def bind_texture_group(self, textures):
+    def set_grid_table(self, grid_table):
         """
-        textures: A texture group
+        grid_table: A numpy array with shape (xmax, ymax, nLevels).
+        """
+        self.gridTable = grid_table
+        utils.debug("attach grid table, shape {}.".format(grid_table.shape))
+
+    def set_texture_group(self, textures):
+        """
+        textures: A  TextureGroup instance
         """
         w, h = textures.size
         self.uvTable = textures.uvTable
-        glUniform2i(program.get_uniform_loc('bigImgSize'), w, h)
+        self.program.set_texture(textures.textureId)
+        utils.debug("Attach texture group, shape {}.".format(self.uvTable.shape))
 
-        glActiveTexture(self.textureUnit.glenum)
-        glBindTexture(GL_TEXTURE_2D, textures.textureId)
-        glUniform1i(
-            program.get_uniform_loc('textureSampler'), self.textureUnit.id)
+    def set_pos(self, pos):
+        self.currentPos = pos
 
     def set_screen_size(self, size=None):
-        if size is None:
-            size = (config.screenWidth, config.screenHeight)
+        """
+        rebuild self.poses, self.positions, self.uvs
+        """
+        if size is None: size = (config.screenWidth, config.screenHeight)
         if size == self.screenSize:
             return
+        utils.debug("configure render by screen size {}".format(size))
         cdef int kL, kR, tL, tR, k, t, rx, ry, w, h
 
         w, h = size
-        glUniform2i(program.get_uniform_loc('screenSize'), w, h)
+        self.program.set_screen_size(size)
 
         rx = int(w / (2 * config.textureXScale)) + 1
         ry = int(h / (2 * config.textureYScale)) + 1
         kL, kR = (-ry, ry + self.BOTTOM_PAD + 1)
         tL, tR = (-rx - self.SIDE_PAD, rx + self.SIDE_PAD + 1)
-        poses = []
+
+        cdef int i = 0
+        cdef int[:, :] poses = self.poses
+        cdef int maxi = self.MAX_GRIDS
         for k in range(kL, kR):
             for t in range(tL, tR):
                 if (k + t) % 2 == 0:
-                    poses.append(((t + k) // 2, (k - t) // 2))
-        nGrids = len(poses)
+                    poses[i, 0] = (t + k) // 2
+                    poses[i, 1] = (k - t) // 2
+                    i += 1
+                    if i >= maxi:
+                        break
+            if i >= maxi:
+                utils.debug('warning: MAX_GRIDS({}) reached'.format())
+                break
+        self.nPoses = nPoses = i
 
-        self.poses = new_array((nGrids, 2), IntType, poses)
-        self.positions = new_array((nGrids * 4, 2), ArrayBufDataType)
-        self.uvs = new_array((nGrids * 4, 2), ArrayBufDataType)
+        self.positions = new_array((nPoses * self.MAX_BATCH * 4, 2), GLfloat)
+        self.uvs = new_array((self.MAX_BATCH * nPoses * 4, 2), GLfloat)
 
         self.screenSize = size
 
-    def move_to(self, pos):
-        self.currentPos = pos
-        self.directionQueue.clear()
+    def zoom(self, delta_rate):
+        r = self.zoomRate = np.clip(self.zoomRate + delta_rate, 
+            self.MIN_ZOOM, self.MAX_ZOOM)
+        self.program.zoom_to(r)
+        w, h = self.screenSize
+        self.set_screen_size((w / r, h / r))
+        self.screenSize = w, h
 
-    def move(self, direction):
-        if len(self.directionQueue) >= 2:
-            return
-        self.directionQueue.append(direction)
+    def batch_draw(self, lhs):
+        """
+        lhs: [(levelField, heightField)]
+        """
+        assert self.is_ready()
+        if self.screenSize is None:
+            self.set_screen_size()
 
-    def update(self):
-        que = self.directionQueue
-        if que:
-            direction = que.pop()
-            self.currentPos = add(self.currentPos, direction)
+        self.program.use()
 
-    def render_map(self, center_pos, levels):
-        cdef int x, y, x1, y1, xmax, ymax, dx, dy, x0, y0, u0, v0, \
-                u, v, cx, cy, uw, uh, level 
-        cdef int i, j, id, nVertices
+        cdef int * Sw = [0, 1, 1, 0]
+        cdef int * Sh = [0, 0, 1, 1]
+        cdef int GX = config.textureXScale 
+        cdef int GY = config.textureYScale
+
+        cdef int x, y, height, x1, y1, xmax, ymax, dx, dy, x0, y0, u0, v0, \
+                u, v, cx, cy, uw, uh, level, maxUVID, heightI 
+        cdef int i, j, k, id, nVertices
         cdef float[:, :] pview = self.positions
         cdef float[:, :] uvview = self.uvs
         cdef int[:, :] poses = self.poses
         cdef short[:, :, :] gtview = self.gridTable
         cdef int[:, :] uvTable = self.uvTable
-        cdef int * Sw = [0, 1, 1, 0]
-        cdef int * Sh = [0, 0, 1, 1]
-        cdef int GX, GY
-        GX = config.textureXScale 
-        GY = config.textureYScale
+        
+        cdef int[:, :] lhsview = np.array(lhs)
+        cdef int nLhs = len(lhs)
+        cdef int nPoses = self.nPoses
 
         x, y = self.currentPos
-        xmax, ymax = self.xmax, self.ymax
-        for level in levels:
-            nVertices = 0
-            for i in range(len(self.poses)):
-                dx = poses[i, 0]
-                dy = poses[i, 1]
-                x1 = x + dx
-                y1 = y + dy
-                id = 0
-                if 0 <= x1 < xmax and 0 <= y1 < ymax:
-                    id = gtview[y1, x1, level]
+        nLevels, ymax, xmax = self.gridTable.shape
+        maxUVID = self.uvTable.shape[0]
+        nVertices = 0
+        for i in range(nPoses):
+            dx = poses[i, 0]
+            dy = poses[i, 1]
+            x1 = x + dx
+            y1 = y + dy
+            if not (0 <= x1 < xmax and 0 <= y1 < ymax):
+                continue
+            for k in range(nLhs):
+                level = lhsview[k, 0]
+                id = gtview[level, y1, x1]
                 if id > 0:
                     id //= 2
-                if id > 0:
+                if 0 < id < maxUVID:
+                    heightI = lhsview[k, 1]
+                    if heightI != level:
+                        height = gtview[heightI, y1, x1]
+                    else:
+                        height = 0
                     #u0, v0, uw, uh, cx, cy = uvTable[id, 0:6]
                     u0 = uvTable[id, 0]
                     v0 = uvTable[id, 1]
                     uw = uvTable[id, 2]
                     uh = uvTable[id, 3]
-                    cx = uvTable[id, 4]
-                    cy = uvTable[id, 5]
-                    x0 = (dx - dy) * GX - u0 - cx
-                    y0 = (dx + dy) * GY - v0 - cy
+                    x0 = (dx - dy) * GX - u0 - uvTable[id, 4]
+                    y0 = (dx + dy) * GY - v0 - uvTable[id, 5] + height
                     for j in range(4):
                         u = u0 + Sw[j] * uw
                         v = v0 + Sh[j] * uh
@@ -169,23 +173,6 @@ class ScrollMap:
                         pview[nVertices + j, 0] = x0 + u
                         pview[nVertices + j, 1] = y0 + v
                     nVertices += 4
-            self.positionBuf.set_array(self.positions)
-            self.positionBuf.bind()
-            glVertexAttribPointer(
-                positionLoc, 2, ArrayBufTypeEnum, GL_FALSE, 0, None)
-            self.uvBuf.set_array(self.uvs)
-            self.uvBuf.bind()
-            glVertexAttribPointer(
-                uvLoc, 2, ArrayBufTypeEnum, GL_FALSE, 0, None)
-
-            glDrawArrays(GL_QUADS, 0, nVertices)
-
-    def render_items(self, center_pos):
-        pass
-
-    def render(self):
-        pass
-
-    def blit_texture(self, id, screen_pos):
-        pass
-
+        self.program.set_positions(self.positions)
+        self.program.set_uvs(self.uvs)
+        self.program.draw(nVertices)

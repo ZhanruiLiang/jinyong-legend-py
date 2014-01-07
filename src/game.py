@@ -7,7 +7,7 @@ from sprite import Picture
 from record import Record, RecordNotExistError
 from menu import BaseMenu, menuitem
 from mainmap import MainMap
-from combat import CombatMapGroup
+from combatmap import CombatMapGroup
 
 
 class GameState:

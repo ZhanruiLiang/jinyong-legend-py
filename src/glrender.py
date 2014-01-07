@@ -65,7 +65,7 @@ def test():
         offsets[i] = t.xoff, t.yoff
         i += 1
 
-    program = gllib.Program.compile([
+    program = gllib.Program([
         ('map.v.glsl', GL_VERTEX_SHADER),
         ('map.f.glsl', GL_FRAGMENT_SHADER),
     ])
