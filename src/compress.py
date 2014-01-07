@@ -12,7 +12,7 @@ filenames = [
     'fight{:03d}'.format(i) for i in range(110)
 ]
 
-def compress_textures(filenames, dest):
+def compress_textures(filenames, dest, image_format='RGBA'):
     utils.pg_init((10, 10))
     data = []
 
@@ -22,7 +22,7 @@ def compress_textures(filenames, dest):
         except FileNotFoundError:
             continue
         image = textures.pack.image
-        rawImageStr = pg.image.tostring(image, 'RGB')
+        rawImageStr = pg.image.tostring(image, image_format)
         compressedImageStr = gzip.compress(rawImageStr)
         utils.debug('compressed size: {}MB. ratio: {}'.format(
             len(compressedImageStr) / 1024 ** 2,
@@ -36,7 +36,7 @@ def compress_textures(filenames, dest):
         metaItem = {
             'name': textures.name,
             'size': image.get_size(),
-            'format': 'RGB',
+            'format': image_format,
             'image': compressedImageStr,
             'textureMetas': textureMetas,
         }

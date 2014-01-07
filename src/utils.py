@@ -154,6 +154,7 @@ def pg_loop(func):
                 if event.key == pg.K_f:
                     pg.display.toggle_fullscreen()
         quit = func(screen, events)
+        pg.display.flip()
         tm.tick(config.FPS)
         if config.showFPS and round % 10 == 0:
             print('\rFPS: {:.1f}'.format(tm.get_fps()), end='')

@@ -1,32 +1,35 @@
-from collections import namedtuple
 import pickle
 import gzip
-import pygame as pg
 
 import config
 import utils
-
-Texture = namedtuple('Texture', (
-    'image', 'xoff', 'yoff', 
-    # 'packX', 'packY', 'width', 'height',
-))
+import gllib
+import numpy as np
+from OpenGL.GL import GLint
 
 class TextureGroup:
-    _groups = {}
+    """
+    uvTable: [(x, y, w, h, cx, cy)]
+    """
     _data = None
+    _groups = {}
 
     def __init__(self, meta):
         self.name = meta['name']
-        self.image = pg.image.fromstring(
-            gzip.decompress(meta['image']), meta['size'], meta['format']
-        ).convert()
-        self.image.set_colorkey(config.colorKey)
-        self.textures = {}
-        for t in meta['textureMetas']:
-            id = t[0]
-            subImage = self.image.subsurface(t[3:])
-            self.textures[id] = Texture(subImage, t[1], t[2])
-        utils.debug(self.name, 'textures:', len(self.textures))
+        self.size = meta['size']
+
+        maxId = 0
+        uvs = {}
+        for item in meta['textureMetas']:
+            id, cx, cy, x, y, w, h = item
+            uvs[id] = (x, y, w, h, cx, cy)
+            maxId = max(id, maxId)
+        self.uvTable = np.zeros((maxId + 1, 6), GLint)
+        for id, v in uvs.items():
+            self.uvTable[id] = v
+
+        rawImageBytes = gzip.decompress(meta['image'])
+        self.textureId = gllib.convert_texture(rawImageBytes, meta['size'])
 
     @classmethod
     def get_group(cls, name):
@@ -38,21 +41,8 @@ class TextureGroup:
             cls._groups[name] = TextureGroup(cls._data[name])
         return cls._groups[name]
 
-    def load_all(self):
-        pass
-
-    def iter_all(self):
-        yield from self.textures.items()
-
     def __len__(self):
         return len(self.textures)
-
-    def get(self, id, fail=0):
-        if id not in self.textures:
-            utils.debug('{}: id: {} not in range {}'.format(
-                self.name, id, (0, len(self.textures) - 1)))
-            return None
-        return self.textures[id]
 
 
 if __name__ == '__main__':

@@ -6,9 +6,9 @@ import pylru
 import config
 import utils
 from scrollmap import ScrollMap
-from texturenew import TextureGroup
+# from texturenew import TextureGroup
 # from texture import PackedTextureGroup as TextureGroup
-# from texture import TextureGroup
+from texture import TextureGroup
 
 GRID_FIELD_NUM = 6
 EVENT_FIELD_NUM = 11

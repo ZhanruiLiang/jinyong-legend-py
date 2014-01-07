@@ -32,3 +32,14 @@ wqy-microhei.ttc
 /src/tags
 /src/profile/surface.py
 mprofile_*.dat
+/src/*.png
+/src/*.bmp
+/src/*.tif
+__pyxbld
+/src/glrender.c
+/src/glrenderhelper.c
+/src/glrenderhelper.html
+/src/glrender.html
+/src/render.c
+/src/render.html
+/src/data.dat

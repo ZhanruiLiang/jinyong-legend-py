@@ -33,7 +33,7 @@ musicVolume = 32
 soundVolume = 32
 textureXScale = 18
 textureYScale = 9
-keyRepeatDelayTime = 150
+keyRepeatDelayTime = 50
 keyRepeatInterval = 20
 talkfile = resource('talk', 'oldtalk.grp')
 menuMarginLeft = menuMarginRight = menuMarginTop = menuMarginBottom = 4
