@@ -23,10 +23,11 @@ class Render:
     # paddings(extra grids when render). Some objects on map is large
     # , so we need to render it's grid enter the screen.
     BOTTOM_PAD = 18
+    TOP_PAD = 8
     SIDE_PAD = 4
     MIN_ZOOM = .1
     MAX_ZOOM = 20.
-    MAX_GRIDS = 6000
+    MAX_GRIDS = config.maxRenderGrids
     MAX_BATCH = 5
 
     def __init__(self):
@@ -49,7 +50,7 @@ class Render:
         grid_table: A numpy array with shape (xmax, ymax, nLevels).
         """
         self.gridTable = grid_table
-        utils.debug("attach grid table, shape {}.".format(grid_table.shape))
+        # utils.debug("attach grid table, shape {}.".format(grid_table.shape))
 
     def set_texture_group(self, textures):
         """
@@ -78,7 +79,7 @@ class Render:
 
         rx = int(w / (2 * config.textureXScale)) + 1
         ry = int(h / (2 * config.textureYScale)) + 1
-        kL, kR = (-ry, ry + self.BOTTOM_PAD + 1)
+        kL, kR = (-ry - self.TOP_PAD, ry + self.BOTTOM_PAD + 1)
         tL, tR = (-rx - self.SIDE_PAD, rx + self.SIDE_PAD + 1)
 
         cdef int i = 0
@@ -93,7 +94,7 @@ class Render:
                     if i >= maxi:
                         break
             if i >= maxi:
-                utils.debug('warning: MAX_GRIDS({}) reached'.format())
+                utils.debug('warning: MAX_GRIDS({}) reached'.format(maxi))
                 break
         self.nPoses = nPoses = i
 
@@ -160,15 +161,15 @@ class Render:
                 v0 = uvTable[id, 1]
                 uw = uvTable[id, 2]
                 uh = uvTable[id, 3]
-                x0 = (dx - dy) * GX - u0 - uvTable[id, 4]
-                y0 = (dx + dy) * GY - v0 - uvTable[id, 5] + height
+                x0 = (dx - dy) * GX - uvTable[id, 4]
+                y0 = (dx + dy) * GY - uvTable[id, 5] + height
                 for j in range(4):
                     u = u0 + Sw[j] * uw
                     v = v0 + Sh[j] * uh
                     uvview[nVertices + j, 0] = u
                     uvview[nVertices + j, 1] = v
-                    pview[nVertices + j, 0] = x0 + u
-                    pview[nVertices + j, 1] = y0 + v
+                    pview[nVertices + j, 0] = x0 + (u - u0)
+                    pview[nVertices + j, 1] = y0 + (v - v0)
                 nVertices += 4
         self.flush(nVertices)
 

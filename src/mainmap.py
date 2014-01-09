@@ -5,6 +5,7 @@ import config
 import utils
 from scrollmap import ScrollMap
 from texturenew import TextureGroup
+from mainmap_helper import find_building_groups
 
 # Typecode 'h' means signed short int.
 TYPE_CODE = 'h'
@@ -16,10 +17,7 @@ GridFields = (
 @utils.singleton
 class MainMap(ScrollMap):
     batchData = [(1, 1), (2, 2)]
-    WALK_TEXTURE_ID0 = 2501
-    BOAT_TEXTURE_ID0 = 3715
-    WALK_TICK_PERIOD = 6
-    COOL_DOWN_PERIOD = 5
+    buildingI = 2
 
     def __init__(self):
         rows = []
@@ -28,43 +26,53 @@ class MainMap(ScrollMap):
                 open(config.resource('data', f + '.002'), 'rb'),
                 'h',
             ))
-        data = np.vstack(rows).reshape(
+        gridTable = np.vstack(rows).reshape(
             (len(GridFields), config.mainMapYMax, config.mainMapXMax)
         )
-        super().__init__(TextureGroup.get_group('mmap'), data)
+        super().__init__(TextureGroup.get_group('mmap'), gridTable)
+        self.adjust_building()
 
-        self._moveTick = 0
-        self._tickPeriod = self.WALK_TICK_PERIOD
-        self._staticTick = self.COOL_DOWN_PERIOD
+    DS_FIX = {
+        2356 // 2: (-2, -2),
+        2490 // 2: (-1, 0),
+        2374 // 2: (-1, -1),
+    }
+    EMPTY = (0, 5000)
+
+    def adjust_building(self):
+        gridTable = self.gridTable
+        buildings = find_building_groups(gridTable)
+
+        uvTable = self.textures.uvTable
+        GX, GY = config.textureXScale, config.textureYScale
+
+        ds = self.DS_FIX.copy()
+        for (bx, by), ps in buildings.items():
+            textureId = gridTable[2, by, bx] // 2
+            if textureId in ds:
+                continue
+            w = uvTable[textureId, 2]
+            dy = - int((w / (2 * GX) - .5) / 2)
+            ds[textureId] = (dy, dy)
+
+        for textureId, (dx, dy) in ds.items():
+            uvTable[textureId, (4, 5)] += (dx - dy) * GX, (dx + dy) * GY
+
+        for (bx, by) in buildings.keys():
+            textureId = gridTable[2, by, bx] // 2
+            dx, dy = ds[textureId]
+            if dy != 0 or dx != 0:
+                gridTable[2, by, bx] = 0
+                x1 = bx + dx
+                y1 = by + dy
+                assert gridTable[2, y1, x1] == 0 or gridTable[3, y1, x1] == bx and gridTable[4, y1, x1] == by
+                gridTable[2, by + dy, bx + dx] = textureId * 2
 
     def can_move_to(self, pos):
+        if not (0 <= pos[0] < self.xmax and 0 <= pos[1] < self.ymax):
+            return False
         b, bx, by = self.gridTable[(2, 3, 4), pos[1], pos[0]]
         return b == 0 and bx == 0 and by == 0
-
-    def update(self):
-        super().update()
-
-    def on_move(self, pos, direction):
-        self._moveTick = 1 + self._moveTick % self._tickPeriod
-        self._staticTick = 0
-        x, y = pos
-        dx, dy = direction
-        self.gridTable[2, y, x] = self.cal_texture_id() * 2
-        self.gridTable[2, y - dy, x - dx] = 0
-
-    def on_pause(self, pos):
-        if self._staticTick > self.COOL_DOWN_PERIOD:
-            return
-        if self._staticTick == self.COOL_DOWN_PERIOD:
-            self._moveTick = 0
-            x, y = pos
-            self.gridTable[2, y, x] = self.cal_texture_id() * 2
-            return
-        self._staticTick += 1
-
-    def cal_texture_id(self):
-        di = config.Directions.all.index(self.orientation)
-        return self.WALK_TEXTURE_ID0 + di * 7 + self._moveTick
 
     def _dump(self):
         utils.debug('moveTick:{} staticTick:{}'.format(self._moveTick, self._staticTick))

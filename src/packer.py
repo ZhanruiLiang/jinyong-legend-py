@@ -125,7 +125,7 @@ Attributes:
         )
         self.images = images
 
-    def make_image(self, waste_color=0xff0000):
+    def make_image(self, waste_color=config.colorKey):
         surface = utils.new_surface(self.size)
         surface.fill(waste_color)
         for image, pos in zip(self.images, self.poses):

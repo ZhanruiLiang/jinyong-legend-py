@@ -117,6 +117,13 @@ def load_smap(id=70):
     utils.show_surface(t1)
 
 @testcase
+def load_cmap(id=70):
+    import texture
+    utils.pg_init()
+    utils.show_surface(
+        texture.TextureGroup.get_group('wmap').get(int(id)).image)
+
+@testcase
 def load_mmap(id=0):
     import texture
     utils.pg_init()

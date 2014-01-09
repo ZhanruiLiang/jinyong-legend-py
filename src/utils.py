@@ -103,6 +103,23 @@ class ProgressBar:
             print('\rprogress: [{}] {}/{} ({:.2f})%'.format(
                 bar, self.cnt, self.total, 100 * self.cnt / self.total), end='')
 
+class NamedStruct:
+    def __init__(self, *args, **kwargs):
+        if kwargs:
+            assert not args, 'Positional args not allowed when using keyword args.'
+            for k, v in kwargs:
+                setattr(self, k, v)
+        else:
+            assert len(self.__slots__) == len(args), \
+                'Argument number must match field number.'
+            for k, v in zip(self.__slots__, args):
+                setattr(self, k, v)
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__,
+            ', '.join('{}={}'.format(name, getattr(self, name))
+                for name in self.__slots__))
+
 def new_surface(size):
     surface = pg.Surface(size, 0, config.depthBits)
     surface.set_colorkey(config.colorKey)

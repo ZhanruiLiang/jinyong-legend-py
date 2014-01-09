@@ -12,7 +12,6 @@ GridFields = (
 )
 
 class CombatMap(ScrollMap):
-    floorHeightI = 0
     batchData = [(1, 1)]
 
     def __init__(self, data):

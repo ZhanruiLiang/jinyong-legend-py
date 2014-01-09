@@ -1,12 +1,11 @@
 from array import array
-from collections import namedtuple, OrderedDict
 import numpy as np
 
 import pylru
 
 import config
 import utils
-from scrollmap import ScrollMap
+from scrollmap import ScrollMap, MainCharacter
 from texturenew import TextureGroup
 
 GRID_FIELD_NUM = 6
@@ -14,18 +13,24 @@ EVENT_FIELD_NUM = 11
 SCENE_BLOCK_SIZE = config.sceneMapXMax * config.sceneMapYMax * GRID_FIELD_NUM * 2
 EVENT_BLOCK_SIZE = config.eventNumPerScene * EVENT_FIELD_NUM * 2
 
-GridFields = OrderedDict(zip((
-    'floor', 
-    'building',
-    'float',
-    'event',
-    'height',
-    'floatHeight',
-), range(99)))
+class GridFields:
+    floor = 0
+    building = 1
+    float = 2
+    event = 3
+    height = 4
+    floatHeight = 5
 
-Event = namedtuple('Event', (
-    'd0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'texture', 'd8', 'd9', 'd10',
-))
+class Event(utils.NamedStruct):
+    __slots__ = [
+        'blocked', 'id', 'interact', 'item', 'stepOn', 
+        'frameStart', 'frameEnd', 'texture', 'delay', 'x', 'y',
+    ]
+
+class MainSceneCharacter(MainCharacter):
+    def on_hit(self, from_pos, pos):
+        event = self.mp.get_event_at(pos)
+        utils.debug('Hit', pos, self.mp.gridTable[:, pos[1], pos[0]], event)
 
 # Typecode 'h' means signed short int.
 TYPE_CODE = 'h'
@@ -37,11 +42,11 @@ class Scene(ScrollMap):
     entrance
     name
     """
-    floorHeightI = GridFields['height']
+    floorHeightI = GridFields.height
     batchData = [
-        (GridFields['building'], GridFields['height']),
-        (GridFields['float'], GridFields['floatHeight']),
-        (GridFields['event'], GridFields['height'])
+        (GridFields.building, GridFields.height),
+        (GridFields.float, GridFields.floatHeight),
+        (GridFields.event, GridFields.height)
     ]
 
     def __init__(self, id, meta_data, sbytes, ebytes):
@@ -59,16 +64,31 @@ class Scene(ScrollMap):
         super().__init__(TextureGroup.get_group('smap'), self.make_grid_table())
 
         self.metaData = meta_data
+        self._eventTick = 0
+
+    def can_move_to(self, pos):
+        x, y = pos
+        grid = self.origGridTable[:, y, x]
+        if grid[GridFields.building] > 0:
+            return False  # Blocked by building
+        eventId = grid[GridFields.event]
+        if eventId >= 0 and self.events[eventId].blocked:
+            return False
+        # TODO: water
+        return True
+
+    def get_event_at(self, pos):
+        eid = self.origGridTable[GridFields.event, pos[1], pos[0]]
+        return self.events[eid] if eid >= 0 else None
 
     def make_grid_table(self):
         gridTable = self.origGridTable.copy()
-        eI = GridFields['event']
         xmax, ymax = gridTable.shape[1:]
         for y in range(ymax):
             for x in range(xmax):
-                e = gridTable[eI, y, x]
+                e = gridTable[GridFields.event, y, x]
                 if e >= 0:
-                    gridTable[eI, y, x] = self.events[e].texture
+                    gridTable[GridFields.event, y, x] = self.events[e].texture
         return gridTable
 
     @property
@@ -83,6 +103,26 @@ class Scene(ScrollMap):
         sbytes = self.gridTable.tostring()
         ebytes = b''.join(array(TYPE_CODE, e).tobytes() for e in self.events)
         return sbytes, ebytes
+
+    def iter_valid_events(self):
+        for event in self.events:
+            if self.origGridTable[GridFields.event, event.y, event.x] >= 0:
+                yield event
+
+    def update(self):
+        if self._eventTick % 4 == 0:
+            for event in self.iter_valid_events():
+                if not (0 < event.frameStart < event.frameEnd):
+                    continue
+                event.texture += 2
+                if event.texture > event.frameEnd:
+                    # Wrap back the frame to start - delay
+                    event.texture = event.frameStart - event.delay
+                if event.texture >= event.frameStart:
+                    self.gridTable[GridFields.event, event.y, event.x] = event.texture
+
+        self._eventTick = (self._eventTick + 1) % 100
+        super().update()
 
 
 class SceneGroup:
@@ -138,6 +178,9 @@ class SceneGroup:
         ebuf = self.eventBuffer[id * E:(id + 1) * E]
         meta = self.metaDatas[id]
         return Scene(id, meta, sbuf, ebuf)
+
+    def __len__(self):
+        return len(self.eventBuffer) // EVENT_BLOCK_SIZE
 
     def get(self, id):
         if id in self._scenes:

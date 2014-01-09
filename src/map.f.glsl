@@ -6,5 +6,8 @@ in vec2 uv;
 out vec4 fragColor;
 
 void main() {
-    fragColor = vec4(texture(textureSampler, uv));
+    vec4 color = texture(textureSampler, uv);
+    const float a0 = .0;
+    fragColor = vec4(color.rgb, a0 + (1-a0) * color.a);
+    /*fragColor = vec4(texture(textureSampler, uv));*/
 }

@@ -22,8 +22,8 @@ drawFloor = 1
 
 # screenWidth, screenHeight = 160, 120
 # screenWidth, screenHeight = 320, 240
-screenWidth, screenHeight = 640, 480
-# screenWidth, screenHeight = 800, 600
+# screenWidth, screenHeight = 640, 480
+screenWidth, screenHeight = 800, 600
 # screenWidth, screenHeight = 1024, 738
 # screenWidth, screenHeight = 1366, 768
 
@@ -37,7 +37,7 @@ soundVolume = 32
 textureXScale = 18
 textureYScale = 9
 keyRepeatDelayTime = 50
-keyRepeatInterval = 20
+keyRepeatInterval = 15
 talkfile = resource('talk', 'oldtalk.grp')
 menuMarginLeft = menuMarginRight = menuMarginTop = menuMarginBottom = 4
 menuItemMarginBottom = 2
@@ -117,3 +117,6 @@ combatMapCacheNum = 16
 # Packer
 packerAutoTranspose = 1
 dataFile = resource('data', 'data.dat')
+
+# Render
+maxRenderGrids = 2 ** 18
